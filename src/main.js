@@ -4,7 +4,7 @@ import { hearUtterance } from './understanding.js';
 import { Renderer } from './render.js';
 import { UI } from './ui.js';
 import { saveConfig, clearConfig, polishLine } from './llm.js';
-import { DECOR_DEFS } from './data.js';
+import { DECOR_DEFS, JOBS } from './data.js';
 import { play, unlockAudio, setMuted, isMuted } from './audio.js';
 import { kick } from './juice.js';
 
@@ -15,6 +15,10 @@ const TPS_BASE = 1.6;          // simulation ticks per real second at 1×
 const canvas = document.getElementById('map');
 const renderer = new Renderer(canvas);
 const speedbar = document.getElementById('speedbar');
+const whoChip = document.getElementById('whoChip');
+const buildTray = document.getElementById('buildTray');
+const buildList = document.getElementById('buildList');
+const orderMenu = document.getElementById('orderMenu');
 
 let sim;
 let speed = 1;
@@ -23,6 +27,7 @@ let acc = 0;
 let placement = null;
 let showPlans = false;
 let lastBuildMsg = '';
+let followId = null;
 let shownDialogue = null;
 
 let polishToken = 0;
@@ -66,8 +71,12 @@ function boot(seed) {
 }
 
 const ui = new UI({
-  onSelect(id) { state.selectedId = id; ui.select(id); },
-  onBack() { state.selectedId = null; ui.selectedId = null; ui.render(sim); },
+  onSelect(id) {
+    state.selectedId = id;
+    ui.select(id);
+    syncWho();
+  },
+  onBack() { state.selectedId = null; ui.selectedId = null; followId = null; ui.render(sim); syncWho(); },
   async onTalk(id) {
     const npc = sim.npcById(id);
     if (!npc) return;
@@ -170,12 +179,7 @@ const ui = new UI({
       ui.toast(res.ok ? `你把 5 枚硬币塞给了${npc.name}。` : (res.msg || '他没有收下。'), 2200);
     } else ui.toast('正在走过去…');
   },
-  onBuild(type) {
-    if (!DECOR_DEFS[type]) return;
-    placement = type;
-    state.placement = type;
-    ui.setPlacement(type);
-  },
+  onBuild(type) { startPlacement(type); },
   onCancelPlacement() { cancelPlacement(); },
   onSave() {
     try {
@@ -209,6 +213,16 @@ const ui = new UI({
   },
 });
 
+
+function startPlacement(type) {
+  if (!DECOR_DEFS[type]) return;
+  play('panel');
+  placement = type;
+  state.placement = type;
+  ui.setPlacement(type);
+  ui.toast('点地图放下图纸 · Esc 取消', 2200);
+}
+
 function cancelPlacement() {
   placement = null;
   state.placement = null;
@@ -217,10 +231,8 @@ function cancelPlacement() {
 
 // ---------- input ----------
 function clientToWorld(ev) {
-  const rect = canvas.getBoundingClientRect();
-  const px = ((ev.clientX - rect.left) / rect.width) * renderer.w;
-  const py = ((ev.clientY - rect.top) / rect.height) * renderer.h;
-  return { tx: px / TS, ty: py / TS };
+  const p = renderer.pickTile(ev.clientX, ev.clientY);
+  return { tx: p.wx / TS, ty: p.wy / TS };
 }
 
 function npcAt(tx, ty) {
@@ -296,6 +308,121 @@ function syncMute(btn) {
   b.classList.toggle('active', !isMuted());
 }
 
+
+
+// ---- 底栏 -------------------------------------------------------------
+function toggleTray(which) {
+  if (which === 'build') openBuild();
+  else openOrders();
+}
+
+function syncWho() {
+  const npc = state.selectedId ? sim.npcById(state.selectedId) : null;
+  if (!npc) {
+    whoChip.textContent = '未选中 · 滚轮缩放 · 右键拖动画面 · WASD 移动';
+    return;
+  }
+  const jobDef = JOBS[npc.profile.job];
+  const job = (jobDef && jobDef.label) || npc.profile.job || '';
+  const goal = npc.goalLabel || '闲着';
+  whoChip.innerHTML = `<strong>${npc.name}</strong> · ${job} · ${goal} · 心情 ${Math.round(npc.mood)}`;
+}
+
+function openBuild() {
+  buildList.innerHTML = '';
+  for (const [id, def] of Object.entries(DECOR_DEFS)) {
+    const b = document.createElement('button');
+    b.className = 'btn tiny';
+    b.dataset.build = id;
+    const cost = Object.entries(def.cost).map(([k, v]) => `${MAT_NAME[k] || k}${v}`).join(' ');
+    const afford = Object.entries(def.cost).every(([k, v]) => (sim.world.stock[k] || 0) >= v);
+    if (!afford) b.classList.add('poor');
+    b.innerHTML = `<b>${def.name}</b><em>${cost}</em>`;
+    buildList.appendChild(b);
+  }
+  buildTray.hidden = !buildTray.hidden;
+  orderMenu.hidden = true;
+  document.querySelector('[data-act="build"]').classList.toggle('on', !buildTray.hidden);
+}
+
+function openOrders() {
+  const npc = state.selectedId ? sim.npcById(state.selectedId) : null;
+  if (!npc) { ui.toast('先选一个人。'); return; }
+  orderMenu.hidden = !orderMenu.hidden;
+  buildTray.hidden = true;
+  document.querySelector('[data-act="order"]').classList.toggle('on', !orderMenu.hidden);
+}
+
+const MAT_NAME = { wood: '木', stone: '石', food: '粮', seeds: '种' };
+
+document.getElementById('actionbar').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+  const act = btn.dataset.act;
+  if (act === 'build') { play('panel'); openBuild(); return; }
+  if (act === 'cancelBuild' || act === 'cancelOrder') {
+    buildTray.hidden = true; orderMenu.hidden = true;
+    document.querySelectorAll('.act.on').forEach(b => b.classList.remove('on'));
+    return;
+  }
+  if (act === 'zoomIn') { play('click'); renderer.zoomAt(0.18, canvas.getBoundingClientRect().left + 200, canvas.getBoundingClientRect().top + 200); return; }
+  if (act === 'zoomOut') { play('click'); renderer.zoomAt(-0.15, canvas.getBoundingClientRect().left + 200, canvas.getBoundingClientRect().top + 200); return; }
+  if (act === 'fit') { play('click'); renderer.cam = { x: 0, y: 0, zoom: 1 }; return; }
+
+  const npc = state.selectedId ? sim.npcById(state.selectedId) : null;
+  if (act === 'talk') { if (npc) ui.handlers.onTalk(npc.id); else ui.toast('先点一个人。'); }
+  if (act === 'gift') { if (npc) ui.handlers.onGift(npc.id); else ui.toast('先点一个人。'); }
+  if (act === 'order') { play('panel'); openOrders(); }
+  if (act === 'follow') {
+    if (!npc) { ui.toast('先点一个人。'); return; }
+    followId = followId === npc.id ? null : npc.id;
+    btn.classList.toggle('on', !!followId);
+    if (followId) renderer.centerOn(npc.x, npc.y);
+    ui.toast(followId ? `跟随 ${npc.name}` : '取消跟随');
+  }
+});
+
+buildList.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-build]');
+  if (!b) return;
+  startPlacement(b.dataset.build);
+  buildTray.hidden = true;
+  document.querySelector('[data-act="build"]').classList.remove('on');
+});
+
+orderMenu.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-order]');
+  if (!b || !state.selectedId) return;
+  ui.handlers.onOrder(state.selectedId, b.dataset.order);
+  orderMenu.hidden = true;
+  document.querySelector('[data-act="order"]').classList.remove('on');
+});
+
+// ---- 相机：滚轮缩放、右键/Shift 拖动、WASD ----------------------------
+canvas.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  renderer.zoomAt(-Math.sign(ev.deltaY) * 0.12, ev.clientX, ev.clientY);
+}, { passive: false });
+
+let drag = null;
+canvas.addEventListener('pointerdown', (ev) => {
+  if (ev.button === 2 || ev.button === 1 || (ev.button === 0 && ev.shiftKey)) {
+    drag = { x: ev.clientX, y: ev.clientY };
+    canvas.setPointerCapture(ev.pointerId);
+    canvas.style.cursor = 'grabbing';
+  }
+});
+canvas.addEventListener('pointermove', (ev) => {
+  if (!drag) return;
+  const rect = canvas.getBoundingClientRect();
+  const dx = (ev.clientX - drag.x) * (renderer.w / rect.width);
+  const dy = (ev.clientY - drag.y) * (renderer.h / rect.height);
+  renderer.panBy(-dx, -dy);
+  drag = { x: ev.clientX, y: ev.clientY };
+});
+canvas.addEventListener('pointerup', () => { drag = null; canvas.style.cursor = ''; });
+canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
+
 function syncSpeedbar() {
   for (const b of speedbar.querySelectorAll('[data-speed]')) b.classList.toggle('active', !paused && Number(b.dataset.speed) === speed);
   const pb = speedbar.querySelector('[data-cmd="pause"]');
@@ -311,7 +438,24 @@ window.addEventListener('keydown', (ev) => {
     else if (state.selectedId) { state.selectedId = null; ui.selectedId = null; ui.render(sim); }
   } else if (['1', '2', '4', '8'].includes(ev.key)) {
     speed = Number(ev.key); paused = false; syncSpeedbar();
-  } else if (ev.key === 'p' || ev.key === 'P') {
+  } else if (ev.key === 'b' || ev.key === 'B') { toggleTray('build'); }
+  else if (ev.key === 't' || ev.key === 'T') { const n = state.selectedId && sim.npcById(state.selectedId); if (n) ui.handlers.onTalk(n.id); }
+  else if (ev.key === 'g' || ev.key === 'G') { const n = state.selectedId && sim.npcById(state.selectedId); if (n) ui.handlers.onGift(n.id); }
+  else if (ev.key === 'o' || ev.key === 'O') { toggleTray('order'); }
+  else if (ev.key === 'f' || ev.key === 'F') {
+    const n = state.selectedId && sim.npcById(state.selectedId);
+    if (n) { followId = followId === n.id ? null : n.id; if (followId) renderer.centerOn(n.x, n.y); }
+  }
+  else if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(ev.key)) {
+    const step = 34;
+    if (ev.key === 'w' || ev.key === 'ArrowUp') renderer.panBy(0, step);
+    if (ev.key === 's' || ev.key === 'ArrowDown') renderer.panBy(0, -step);
+    if (ev.key === 'a' || ev.key === 'ArrowLeft') renderer.panBy(step, 0);
+    if (ev.key === 'd' || ev.key === 'ArrowRight') renderer.panBy(-step, 0);
+  }
+  else if (ev.key === '+' || ev.key === '=') renderer.zoomAt(0.18, innerWidth / 2, innerHeight / 2);
+  else if (ev.key === '-') renderer.zoomAt(-0.15, innerWidth / 2, innerHeight / 2);
+  else if (ev.key === 'p' || ev.key === 'P') {
     showPlans = !showPlans; state.showPlans = showPlans;
     ui.toast(showPlans ? '显示所有人的行走目标' : '隐藏行走目标', 1200);
   } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') {
@@ -334,6 +478,12 @@ function frame(now) {
     let guard = 0;
     while (acc >= 1 && guard < 60) { acc -= 1; sim.step(); guard++; }
     if (guard >= 60) acc = 0;
+  }
+
+  if (followId) {
+    const n = sim.npcById(followId);
+    if (n) renderer.centerOn(n.x, n.y);
+    else { followId = null; document.querySelector('[data-act="follow"]').classList.remove('on'); }
   }
 
   // walking up to someone finishes the request inside sim.step
@@ -359,6 +509,7 @@ function frame(now) {
 
   if (state.selectedId && !sim.npcById(state.selectedId)) state.selectedId = null;
   syncMute();
+syncWho();
 requestAnimationFrame(frame);
 }
 

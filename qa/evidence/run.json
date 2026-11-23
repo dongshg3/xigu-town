@@ -1,49 +1,49 @@
 {
   "schemaVersion": 1,
   "runId": "main-path",
-  "createdAt": "2026-11-23T15:04:44.624Z",
+  "createdAt": "2026-11-23T15:19:58.169Z",
   "environment": {
     "os": "win32 10.0.22000",
     "node": "v24.13.1",
     "browser": "Chrome/157.0.8103.80",
-    "url": "http://127.0.0.1:8922/?seed=20261123",
+    "url": "http://127.0.0.1:10751/?seed=20261123",
     "viewport": "1280x800",
     "seed": 20261123,
     "timezone": "Asia/Shanghai"
   },
   "inputTrace": [
     {
-      "at": "2026-11-23T15:04:47.259Z",
+      "at": "2026-11-23T15:20:00.899Z",
       "action": "navigate",
-      "detail": "http://127.0.0.1:8922/?seed=20261123"
+      "detail": "http://127.0.0.1:10751/?seed=20261123"
     },
     {
-      "at": "2026-11-23T15:04:47.485Z",
+      "at": "2026-11-23T15:20:01.150Z",
       "action": "click",
       "detail": "speed 8x"
     },
     {
-      "at": "2026-11-23T15:04:49.658Z",
+      "at": "2026-11-23T15:20:03.395Z",
       "action": "click",
       "detail": "walk to tile 20,11"
     },
     {
-      "at": "2026-11-23T15:04:51.275Z",
+      "at": "2026-11-23T15:20:05.019Z",
       "action": "key",
       "detail": "Space (pause)"
     },
     {
-      "at": "2026-11-23T15:04:52.248Z",
+      "at": "2026-11-23T15:20:06.002Z",
       "action": "fast-forward",
       "detail": "480 ticks via sim.step(), sampling goals and acts"
     },
     {
-      "at": "2026-11-23T15:04:52.299Z",
+      "at": "2026-11-23T15:20:06.058Z",
       "action": "sandbox",
       "detail": "place bench blueprint and wait for the carpenter"
     },
     {
-      "at": "2026-11-23T15:04:53.471Z",
+      "at": "2026-11-23T15:20:07.262Z",
       "action": "reload",
       "detail": "reload, then restore from localStorage"
     }
@@ -76,12 +76,12 @@
         "visual": "qa/evidence/render-02-running.png",
         "boot": "qa/evidence/render-01-boot.png",
         "bytes": [
-          287493,
-          254822
+          283764,
+          250890
         ],
         "clock": [
           "第 1 天 06:05",
-          "第 1 天 07:35"
+          "第 1 天 07:40"
         ]
       }
     },
@@ -153,7 +153,7 @@
           "x": 7,
           "y": 2
         },
-        "steps": 157,
+        "steps": 156,
         "before": 3,
         "after": 4,
         "beauty": 7,
