@@ -1,6 +1,7 @@
 // smoke.mjs — headless verification of the simulation (no DOM, no network).
 import assert from 'node:assert/strict';
 import { Simulation } from '../src/sim.js';
+import { titleOf } from '../src/development.js';
 import { hearUtterance } from '../src/understanding.js';
 import { priceOf } from '../src/economy.js';
 
@@ -422,6 +423,54 @@ try {
   const kinds = new Set(s17.npcs.flatMap((n) => n.history.map((h) => h.kind)));
   pass("个人史", s17.npcs.reduce((a, n) => a + n.history.length, 0) + " 条记录 · 类型 " + [...kinds].join("/"));
 } catch (e) { fail("个人史", e.message); }
+
+
+// ---------- 26. 神迹 ----------
+try {
+  const s18 = new Simulation(20261123);
+  for (let i = 0; i < 3 * 288; i++) s18.step();
+  assert.ok(s18.faith.points >= 8, "faith too low: " + s18.faith.points);
+  const n = s18.npcs.find((x) => x.id === "ye");
+  const aff0 = n.rel("player").affinity;
+  const p0 = s18.faith.points;
+  const r1 = s18.god("ye", "bless");
+  assert.ok(r1.ok, "bless failed");
+  assert.equal(n.rel("player").affinity, Math.min(100, aff0 + 10), "bless did not move affinity");
+  assert.equal(s18.faith.points, p0 - 8, "bless did not cost faith");
+  const t0 = n.traits.length;
+  const r2 = s18.god("ye", "reshape");
+  assert.ok(r2.ok || /全了/.test(r2.msg), "reshape failed: " + r2.msg);
+  assert.ok(n.traits.length >= t0, "reshape lost traits");
+  s18.faith.points = 2;
+  const r3 = s18.god("ye", "reshape");
+  assert.equal(r3.ok, false, "spent faith it did not have");
+  pass("神迹", "信仰 " + p0 + " · 祝福/重塑生效 · 余额不足被拒");
+} catch (e) { fail("神迹", e.message); }
+
+// ---------- 27. 系统等级 ----------
+try {
+  const s19 = new Simulation(4242);
+  for (let i = 0; i < 8 * 288; i++) s19.step();
+  const lv = s19.devList();
+  assert.equal(lv.length, 6, "expected six systems");
+  for (const l of lv) assert.ok(l.lv >= 1 && l.lv <= 5, l.name + " level out of range: " + l.lv);
+  const raised = lv.filter((l) => l.lv > 1);
+  assert.ok(raised.length >= 2, "no system leveled up in 8 days");
+  pass("系统等级", lv.map((l) => l.name + " L" + l.lv).join(" "));
+} catch (e) { fail("系统等级", e.message); }
+
+// ---------- 28. 影响与称号 ----------
+try {
+  const s20 = new Simulation(20261123);
+  for (let i = 0; i < 6 * 288; i++) s20.step();
+  const inf = s20.influence || [];
+  assert.ok(inf.length >= 1, "no influence events in 6 days");
+  const learned = s20.npcs.filter((n) => n.memory.some((m) => m.kind === "learn"));
+  assert.ok(learned.length >= 1, "nobody learned from anyone");
+  const titled = s20.npcs.filter((n) => titleOf(n));
+  assert.ok(titled.length >= 1, "no titles at all");
+  pass("影响与称号", inf.length + " 条影响事件 · " + titled.length + " 人有称号");
+} catch (e) { fail("影响与称号", e.message); }
 
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);

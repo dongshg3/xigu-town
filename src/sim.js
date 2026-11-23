@@ -12,6 +12,9 @@ import { ensureSociety, tickSocietyDay, seekCare, jailRelease, tickCrime } from 
 import { ensureLedger, settleDay, refreshOrders, buy, sell, fulfillOrder, eatAtTavern, workShift } from './economy.js';
 import { ensurePlots, claimPlot, onHouseBuilt, makeSettlerProfile, claimCost } from './territory.js';
 import { ensureCouncil, tickPolitics, propose, voteFor, politicsSummary, playerStanding, runForMayor } from './politics.js';
+import { ensureFaith, tickFaith, godAct } from './god.js';
+import { ensureDev, tickDevelopment } from './development.js';
+import { tickInfluence } from './influence.js';
 
 export class Simulation {
   constructor(seed = 20261123) {
@@ -45,6 +48,12 @@ export class Simulation {
     this.pendingSettlers = 0;
     ensureSociety(this);
     ensureCouncil(this);
+    ensureFaith(this);
+    ensureDev(this);
+    this.levels = [];
+    this.milestones = [];
+    this.influence = [];
+    tickDevelopment(this);
     this.log(`第 1 天，你来到了溪谷镇。`, 'system', []);
     this.log(`镇上有 ${this.npcs.length} 位居民，各自过着自己的日子。`, 'system', []);
   }
@@ -317,6 +326,9 @@ export class Simulation {
     settleDay(this);
     tickPolitics(this);
     tickSocietyDay(this);
+    tickInfluence(this);
+    tickDevelopment(this);
+    tickFaith(this);
     this.spawnSettlers();
   }
 
@@ -366,6 +378,10 @@ export class Simulation {
       blueprints: this.world.blueprints.length,
     };
   }
+
+  god(npcId, powerId) { return godAct(this, npcId, powerId); }
+
+  devList() { return this.levels && this.levels.length ? this.levels : tickDevelopment(this); }
 
   scheduleFor(npc) {
     const job = JOBS[npc.job];
@@ -428,6 +444,11 @@ export class Simulation {
       playerRels: [...this.playerRels.entries()].map(([id, r]) => [id, { ...r }]),
       revealedSecrets: [...this.revealedSecrets],
       logs: this.logs.slice(-160),
+      faith: JSON.parse(JSON.stringify(this.faith)),
+      dev: { ...this.dev },
+      levels: (this.levels || []).map((l) => ({ id: l.id, lv: l.lv, score: l.score })),
+      milestones: (this.milestones || []).slice(-40),
+      influence: (this.influence || []).slice(-20),
     };
   }
 
@@ -442,6 +463,10 @@ export class Simulation {
     this.weatherId = w.id;
     this.world.weather = w.id;
     this.world.blueprints = data.blueprints.map((b) => ({ ...b }));
+    if (data.faith) this.faith = { ...data.faith, log: (data.faith.log || []).slice(0, 24) };
+    if (data.dev) ensureDev(this), Object.assign(this.dev, data.dev);
+    if (data.milestones) this.milestones = data.milestones.slice(-40);
+    if (data.influence) this.influence = data.influence.slice(-20);
     this.world.decor = data.decor.map((d) => ({ ...d }));
     data.tiles.forEach((saved, i) => {
       const t = this.world.tiles[i];

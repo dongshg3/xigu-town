@@ -1,5 +1,6 @@
 // panels.js — 镇务面板（市政 / 版图 / 市集 / 委托）。纯字符串，不碰 DOM 状态。
 import { GOODS, priceOf } from './economy.js';
+import { townScore } from './development.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -40,6 +41,13 @@ export function townHTML(sim) {
     .map((p) => `<button class="mini" data-act="propose" data-id="${p.id}">${p.label}</button>`)
     .join('') || '<span class="dim">暂时没有提案</span>';
 
+  const lvList = (sim.devList ? sim.devList() : []).map((l) => {
+    const pct = Math.min(100, Math.round((l.score / (l.next || l.score || 1)) * 100));
+    return `<div class="devrow"><span class="devname">${l.icon} ${l.name}</span><b>Lv${l.lv}</b>
+      <span class="devbar"><i style="width:${pct}%"></i></span>
+      <span class="dim">${l.effect}</span></div>`;
+  }).join('');
+
   const bag = Object.entries(GOODS)
     .map(([id, g]) => `<span class="chip">${g.name} ${sim.player.bag?.[id] || 0}</span>`)
     .join('');
@@ -54,6 +62,9 @@ export function townHTML(sim) {
     <div class="kv"><b>营生</b><span><button class="mini" data-act="shift">打零工（半天）</button> 
       <button class="mini" data-act="run">参选镇长</button></span></div>
     <div class="kv"><b>公账</b><span>${t.coins || 0} 硬币</span></div>
+    <div class="kv"><b>信仰</b><span>${sim.faith ? sim.faith.points : 0} 点 · 神迹 ${sim.faith ? sim.faith.level : 1} 级</span></div>
+    <h3>镇子的底子 <span class="dim">${(() => { const ts = townScore(sim); return ts.sum + '/' + ts.max; })()}</span></h3>
+    <div class="devs">${lvList}</div>
     <h3>提案</h3>
     <div class="chips">${proposals}</div>
     <h3>版图 <span class="dim">购地 ${cost} 硬币</span></h3>

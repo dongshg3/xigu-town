@@ -1,49 +1,49 @@
 {
   "schemaVersion": 1,
   "runId": "main-path",
-  "createdAt": "2026-11-23T14:07:10.858Z",
+  "createdAt": "2026-11-23T14:13:51.621Z",
   "environment": {
     "os": "win32 10.0.22000",
     "node": "v24.13.1",
     "browser": "Chrome/157.0.8103.80",
-    "url": "http://127.0.0.1:3034/?seed=20261123",
+    "url": "http://127.0.0.1:3857/?seed=20261123",
     "viewport": "1280x800",
     "seed": 20261123,
     "timezone": "Asia/Shanghai"
   },
   "inputTrace": [
     {
-      "at": "2026-11-23T14:07:13.633Z",
+      "at": "2026-11-23T14:13:54.403Z",
       "action": "navigate",
-      "detail": "http://127.0.0.1:3034/?seed=20261123"
+      "detail": "http://127.0.0.1:3857/?seed=20261123"
     },
     {
-      "at": "2026-11-23T14:07:13.828Z",
+      "at": "2026-11-23T14:13:54.592Z",
       "action": "click",
       "detail": "speed 8x"
     },
     {
-      "at": "2026-11-23T14:07:15.464Z",
+      "at": "2026-11-23T14:13:56.190Z",
       "action": "click",
       "detail": "walk to tile 20,11"
     },
     {
-      "at": "2026-11-23T14:07:17.083Z",
+      "at": "2026-11-23T14:13:57.817Z",
       "action": "key",
       "detail": "Space (pause)"
     },
     {
-      "at": "2026-11-23T14:07:18.063Z",
+      "at": "2026-11-23T14:13:58.776Z",
       "action": "fast-forward",
       "detail": "480 ticks via sim.step(), sampling goals and acts"
     },
     {
-      "at": "2026-11-23T14:07:18.115Z",
+      "at": "2026-11-23T14:13:58.826Z",
       "action": "sandbox",
       "detail": "place bench blueprint and wait for the carpenter"
     },
     {
-      "at": "2026-11-23T14:07:19.264Z",
+      "at": "2026-11-23T14:13:59.962Z",
       "action": "reload",
       "detail": "reload, then restore from localStorage"
     }
@@ -76,8 +76,8 @@
         "visual": "qa/evidence/render-02-running.png",
         "boot": "qa/evidence/render-01-boot.png",
         "bytes": [
-          213243,
-          185502
+          213338,
+          185507
         ],
         "clock": [
           "第 1 天 06:05",
@@ -109,7 +109,7 @@
         "t0": 43,
         "t1": 523,
         "logs0": 16,
-        "logs1": 120,
+        "logs1": 123,
         "goalKinds": [
           "eat",
           "relax",
@@ -180,12 +180,12 @@
           "clock": "第 1 天 06:05"
         },
         "saved": {
-          "tick": 686,
+          "tick": 685,
           "npcs": 8,
           "decor": 7
         },
         "restored": {
-          "tick": 686,
+          "tick": 685,
           "npcs": 8,
           "decor": 7
         },

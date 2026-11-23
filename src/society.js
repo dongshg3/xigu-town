@@ -102,7 +102,8 @@ export function tickRomance(sim) {
       if (rel.affinity < 62 || back.affinity < 58) continue;
       const mutual = Math.min(rel.affinity, back.affinity) / 100;
       if (!sim.rng.chance(0.05 + mutual * 0.08)) continue;
-      a.partner = b.id;
+      if (sim.dev) sim.dev.weddings += 1;
+    a.partner = b.id;
       b.partner = a.id;
       a.note(`和${b.name}在一起了`, 'family');
       b.note(`和${a.name}在一起了`, 'family');
@@ -150,6 +151,7 @@ function spawnChild(sim, a, b) {
   };
   const kid = new NPC({ ...profile }, sim.world, sim);
   kid.education = 8;
+  if (sim.dev) sim.dev.births += 1;
   kid.partner = null;
   kid.children = [];
   a.children.push(id);
@@ -199,6 +201,7 @@ export function tickCrime(sim) {
     n.note(caught ? '偷东西被石头抓住了' : '饿得没办法，拿了一点镇上的存粮', 'crime');
     sim.crimeLog.push({ t: sim.tick, who: n.id, caught, item: took });
 
+    if (sim.dev) { sim.dev.crimes += 1; if (caught) sim.dev.caught += 1; }
     if (caught) {
       const fine = Math.min(n.coins, 12);
       n.coins -= fine;

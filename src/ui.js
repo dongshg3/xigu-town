@@ -3,6 +3,7 @@ import { TRAITS, JOBS, DECOR_DEFS } from './data.js';
 import { clockOf } from './core.js';
 import { relTag } from './social.js';
 import { summarizeMind } from './learning.js';
+import { titleOf } from './development.js';
 import { loadConfig, llmReady } from './llm.js';
 import { townHTML } from './panels.js';
 
@@ -58,6 +59,7 @@ export class UI {
       else if (act === 'buy') this.handlers.onBuy?.(el.dataset.good, 1);
       else if (act === 'sell') this.handlers.onSell?.(el.dataset.good, 1);
       else if (act === 'order') this.handlers.onOrder?.(id, el.dataset.order);
+      else if (act === 'god') this.handlers.onGod?.(id, el.dataset.god);
       else if (act === 'deliver') this.handlers.onDeliver?.(el.dataset.id);
       else if (act === 'claim') this.handlers.onClaim?.(el.dataset.plot);
       else if (act === 'propose') this.handlers.onPropose?.(el.dataset.id);
@@ -244,7 +246,13 @@ export class UI {
       <div class="kv"><span>性别 · 年龄</span><b>${sexName} · ${n.age} 岁</b></div>
       <div class="kv"><span>健康</span><b>${n.sick ? '生病中 ' : ''}${Math.round(n.health)}/100</b></div>
       <div class="kv"><span>学识</span><b>${Math.round(n.education)}/100</b></div>
-      <div class="kv"><span>家庭</span><b>${partner ? esc(partner.name) : '单身'}${kids.length ? ' · 孩子 ' + kids.map((k) => esc(k.name)).join('、') : ''}</b></div>`;
+      <div class="kv"><span>家庭</span><b>${partner ? esc(partner.name) : '单身'}${kids.length ? ' · 孩子 ' + kids.map((k) => esc(k.name)).join('、') : ''}</b></div>
+      ${titleOf(n) ? `<div class="kv"><span>称号</span><b>${esc(titleOf(n))}</b></div>` : ''}`;
+
+    const godBtns = [
+      ['bless', '祝福 8'], ['curse', '惩戒 10'], ['inspire', '点醒 6'], ['reshape', '重塑 24'], ['heal', '治愈 12'],
+    ].map(([k, label]) => `<button class="mini" data-act="god" data-npc="${n.id}" data-god="${k}">${label}</button>`).join('');
+    const faithNow = `<div class="sub" style="margin-top:6px;font-size:11px;color:#e0b05a">信仰 ${sim.faith ? sim.faith.points : 0} 点 · 神迹 ${sim.faith ? sim.faith.level : 1} 级</div>`;
     const orderBtns = [
       ['work', '去上工'], ['rest', '回家休息'], ['school', '去学堂'],
       ['buy', '去市集'], ['patrol', '去巡查'],
@@ -301,6 +309,9 @@ export class UI {
 
       <h3>身份</h3>
       ${identity}
+      <h3>神迹</h3>
+      <div class="chips">${godBtns}</div>
+      ${faithNow}
       <h3>指挥</h3>
       <div class="chips">${orderBtns}</div>
       ${orderNow}

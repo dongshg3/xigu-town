@@ -102,6 +102,11 @@ const ui = new UI({
     ui.toast(r.ok ? '交货完成' : r.msg);
     ui.render(sim);
   },
+  onGod(id, power) {
+    const r = sim.god(id, power);
+    ui.toast(r.ok ? r.msg : r.msg);
+    ui.render(sim);
+  },
   onOrder(id, kind) {
     const r = sim.issueOrder(id, kind);
     ui.toast(r.ok ? '吩咐下去了' : r.msg);

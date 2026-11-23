@@ -407,6 +407,7 @@ export class NPC {
         break;
       }
       case 'study': {
+      if (this.sim?.dev) this.sim.dev.study += 1;
         n.purpose = clamp(n.purpose + 6, 0, 100);
         n.fun = clamp(n.fun + 3, 0, 100);
         this.education = clamp(this.education + 1.6, 0, 100);
@@ -445,6 +446,7 @@ export class NPC {
         break;
       }
       case 'harvest': {
+      if (this.sim?.dev) this.sim.dev.harvest += 1;
         const got = w.harvest(d.x, d.y);
         if (got) {
           sim.world.stock.food += got;
