@@ -88,6 +88,7 @@ export class NPC {
     this.partner = null;
     this.children = [];
     this.nextGreetAt = 0;
+    this.dir = 'down';
     this.memory = [];
     this.beliefs = [];
     this.rels = new Map();
@@ -290,7 +291,8 @@ export class NPC {
       } else {
         this.x += (dx / d) * budget;
         this.y += (dy / d) * budget;
-        if (Math.abs(dx) > 0.01) this.facing = Math.sign(dx);
+        if (Math.abs(dx) > 0.01 && Math.abs(dx) >= Math.abs(dy)) this.dir = dx > 0 ? 'right' : 'left';
+        else if (Math.abs(dy) > 0.01) this.dir = dy > 0 ? 'down' : 'up';
         budget = 0;
       }
     }

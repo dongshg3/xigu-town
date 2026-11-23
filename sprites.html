@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>小人样张</title>
+<style>
+  body { margin: 0; background: #8dbd61; display: grid; place-items: center; height: 100vh; }
+  canvas { image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="sheet" width="720" height="360"></canvas>
+<script type="module">
+import * as art from './src/art.js';
+const c = document.getElementById('sheet');
+const ctx = c.getContext('2d');
+ctx.fillStyle = '#8dbd61';
+ctx.fillRect(0, 0, c.width, c.height);
+ctx.font = '12px "Microsoft YaHei", sans-serif';
+ctx.fillStyle = '#3b2a1f';
+
+const people = [
+  { cloth: '#d9b25f', hair: '#3a2b22', hat: 'straw', label: '阿岚·右' },
+  { cloth: '#7b93a8', hair: '#2e241d', label: '老墨·上' },
+  { cloth: '#c98aa8', hair: '#4a3325', hat: 'beret', accent: '#8a5a7a', label: '阿梨·左' },
+  { cloth: '#e6e2d6', hair: '#3a2b22', accent: '#d05a4a', label: '苏叶·下' },
+];
+const dirs = ['right', 'up', 'left', 'down'];
+
+dirs.forEach((dir, row) => {
+  for (let f = 0; f < 4; f++) {
+    const px = 30 + f * 62;
+    const py = 30 + row * 78;
+    art.chibi(ctx, px, py, {
+      ts: 56,
+      cloth: people[row].cloth,
+      hair: people[row].hair,
+      hat: people[row].hat || null,
+      accent: people[row].accent || null,
+      facing: dir,
+      frame: f,
+      pose: 'walk',
+    });
+    ctx.fillStyle = '#3b2a1f';
+    ctx.fillText(`${dir} ${f}`, px + 4, py + 68);
+  }
+});
+
+// 坐姿与站立
+art.chibi(ctx, 300, 30, { ts: 56, cloth: '#c98aa8', hair: '#4a3325', facing: 'down', pose: 'sit' });
+ctx.fillText('sit', 312, 98);
+art.chibi(ctx, 380, 30, { ts: 56, cloth: '#d9b25f', hair: '#3a2b22', hat: 'straw', facing: 'down', pose: 'stand' });
+ctx.fillText('stand', 392, 98);
+art.chibi(ctx, 460, 30, { ts: 56, cloth: '#e6e2d6', hair: '#3a2b22', facing: 'up', pose: 'stand', accent: '#d05a4a' });
+ctx.fillText('up-stand', 470, 98);
+</script>
+</body>
+</html>
