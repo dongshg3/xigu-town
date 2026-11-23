@@ -472,6 +472,81 @@ try {
   pass("影响与称号", inf.length + " 条影响事件 · " + titled.length + " 人有称号");
 } catch (e) { fail("影响与称号", e.message); }
 
+// ---------- 29. 落图纸前置检查（canPlace 给具体理由） ----------
+try {
+  const s21 = new Simulation(9090);
+  const w = s21.world;
+  assert.equal(w.canPlace('bench', 3, 3).ok, false, 'pond accepted a bench');
+  assert.ok(w.canPlace('bench', 3, 3).reason.length > 0, 'no reason for water');
+  const street = w.canPlace('bench', 10, 15);
+  assert.equal(street.ok, false, 'street accepted a bench');
+  assert.ok(street.reason.includes('主街'), 'street reason wrong: ' + street.reason);
+  const wood0 = w.stock.wood;
+  w.stock.wood = 0;
+  const poor = w.canPlace('cottage', 20, 26);
+  assert.equal(poor.ok, false, 'cottage accepted without wood');
+  assert.ok(poor.reason.includes('木材'), 'poor reason wrong: ' + poor.reason);
+  w.stock.wood = wood0;
+  let free = null;
+  for (let y = 2; y < w.h - 2 && !free; y++) for (let x = 2; x < w.w - 2 && !free; x++) {
+    if (w.canPlace('bench', x, y).ok) free = { x, y };
+  }
+  assert.ok(free, 'no placeable tile at all');
+  const denied = s21.placeBlueprint('bench', 10, 15);
+  assert.equal(denied.ok, false, 'placeBlueprint bypassed canPlace');
+  assert.ok(denied.msg.includes('主街'), 'placeBlueprint msg not specific: ' + denied.msg);
+  pass('落图纸检查', `水面/主街/缺料均被拒且带理由 · (${free.x},${free.y}) 可放`);
+} catch (e) { fail('落图纸检查', e.message); }
+
+// ---------- 30. 季节：标签轮换 + 作物长势随季节 ----------
+try {
+  const { clockOf } = await import('../src/core.js');
+  assert.equal(clockOf(0).seasonLabel, '春');
+  assert.equal(clockOf(7 * 288).seasonLabel, '夏');
+  assert.equal(clockOf(14 * 288).seasonLabel, '秋');
+  assert.equal(clockOf(21 * 288).seasonLabel, '冬');
+  assert.equal(clockOf(28 * 288).seasonLabel, '春', 'season cycle should wrap at 28 days');
+  const grow = (day, ticks) => {
+    const s = new Simulation(555);
+    s.tick = (day - 1) * 288;
+    s.lastDay = day;
+    const t = s.world.farmTiles.map((f) => s.world.tile(f.x, f.y)).find((x) => x.terrain === 'soil');
+    t.crop = { stage: 0, growth: 0, watered: true, kind: '芜菁' };
+    for (let i = 0; i < ticks; i++) { t.crop.watered = true; s.step(); }
+    return t.crop.growth;
+  };
+  const spring = grow(2, 60);
+  const winter = grow(23, 60);
+  assert.ok(spring > winter * 1.5, `seasonal growth too close: 春 ${spring.toFixed(2)} vs 冬 ${winter.toFixed(2)}`);
+  pass('季节', `春夏秋冬轮换 · 60 刻长势 春 ${spring.toFixed(1)} > 冬 ${winter.toFixed(1)}`);
+} catch (e) { fail('季节', e.message); }
+
+// ---------- 31. 指令选对象（去聊聊 → 找指定的人） ----------
+try {
+  const s22 = new Simulation(3131);
+  for (let i = 0; i < 30; i++) s22.step();
+  const a = s22.npcs[0];
+  const b = s22.npcs[1];
+  s22.player.x = a.x; s22.player.y = a.y;
+  const r = s22.issueOrder(a.id, 'talk', b.id);
+  assert.ok(r.ok, 'talk order refused: ' + r.msg);
+  assert.equal(r.order.arg, b.id, 'order lost its target');
+  assert.ok(r.order.label.includes(b.name), 'label missing target name: ' + r.order.label);
+  assert.ok(a.history.some((h) => h.text.includes('去找') && h.text.includes(b.name)),
+    'history did not record the targeted order');
+  // 他可能在走路，等当前路径走完才会按指令重排计划
+  let chatStep = null;
+  for (let i = 0; i < 60 && !chatStep; i++) {
+    s22.step();
+    chatStep = (a.plan || []).find((st) => st.kind === 'act' && st.id === 'chat') || null;
+  }
+  assert.ok(chatStep, 'no chat step in plan');
+  assert.equal(chatStep.target, b.id, 'chat step targets the wrong npc');
+  const bad = s22.issueOrder(a.id, 'talk', a.id);
+  assert.equal(bad.ok, false, 'self-talk accepted');
+  pass('指令选对象', `${a.name} 被吩咐去找 ${b.name} · 计划含 chat 步骤 · 个人史留痕`);
+} catch (e) { fail('指令选对象', e.message); }
+
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} 项通过`);

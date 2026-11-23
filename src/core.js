@@ -43,6 +43,8 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 export const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 export const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
+export const SEASON_NAMES = ['春', '夏', '秋', '冬'];
+
 export function clockOf(tick) {
   const abs = DAY_START + tick * TICK_MINUTES;
   const day = Math.floor(abs / MINUTES_PER_DAY) + 1;
@@ -51,8 +53,11 @@ export function clockOf(tick) {
   const minute = mod % 60;
   const hh = String(hour).padStart(2, '0');
   const mm = String(minute).padStart(2, '0');
+  // 7 天一个季节，28 天一轮；季节只由天数推导，存档不用额外存
+  const season = Math.floor(((day - 1) % 28) / 7);
   return {
     day, hour, minute, minutes: mod,
+    season, seasonLabel: SEASON_NAMES[season],
     label: `第 ${day} 天 ${hh}:${mm}`,
     short: `${hh}:${mm}`,
     isNight: hour < 6 || hour >= 21,

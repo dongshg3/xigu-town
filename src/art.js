@@ -76,21 +76,30 @@ function rr(ctx, x, y, w, h, r, color) {
 // ---------- 地面 ----------
 const NAMES = ['grass', 'path', 'water', 'soil', 'floor', 'stump', 'sand'];
 
-export function groundTile(ctx, terrain, px, py, ts, variant, neighbors = {}) {
+// 四季草地配色：春嫩、夏深、秋黄、冬霜。只换色，不改形状，轮廓保持稳定。
+const GRASS_SEASON = [
+  { base: ['#8dbd61', '#8ec063', '#8bbb5f'], light: '#97c76a', dark: '#82b455', tuft: '#6c9b47', spark: '#c3e096', edge: '#5d8a3c', shore: '#cfe3a8' },
+  { base: ['#7cab52', '#82b356', '#77a74e'], light: '#8abb60', dark: '#6f9c48', tuft: '#5c873c', spark: '#b8d488', edge: '#527a36', shore: '#c6dc9e' },
+  { base: ['#c0a45c', '#c6aa62', '#baa058'], light: '#cdb26e', dark: '#ad924c', tuft: '#96804a', spark: '#e8d08e', edge: '#8a7440', shore: '#dcc98e' },
+  { base: ['#a9b49b', '#afbaa1', '#a3ae95'], light: '#b8c2aa', dark: '#97a289', tuft: '#7e8a72', spark: '#e4e8da', edge: '#6f7a64', shore: '#d4d8c4' },
+];
+
+export function groundTile(ctx, terrain, px, py, ts, variant, neighbors = {}, season = 0) {
   const key = typeof terrain === 'number' ? NAMES[terrain] : terrain;
   const v = Math.abs(variant | 0) % 4;
   if (key === 'grass') {
+    const gs = GRASS_SEASON[season % 4] || GRASS_SEASON[0];
     const patch = hash(Math.floor(px / (ts * 3)), Math.floor(py / (ts * 3))) % 3;
-    rect(ctx, px, py, ts, ts, ['#8dbd61', '#8ec063', '#8bbb5f'][patch]);
-    if (v % 5 === 0) rect(ctx, px, py, ts, ts, '#97c76a', 0.18);
-    if (v % 7 === 0) rect(ctx, px, py, ts, ts, '#82b455', 0.16);
+    rect(ctx, px, py, ts, ts, gs.base[patch]);
+    if (v % 5 === 0) rect(ctx, px, py, ts, ts, gs.light, 0.18);
+    if (v % 7 === 0) rect(ctx, px, py, ts, ts, gs.dark, 0.16);
     if (v === 1 || v === 3) {
-      rect(ctx, px + 6, py + 8, 2, 3, PAL.grassDark, 0.5);
-      rect(ctx, px + 14, py + 15, 2, 3, PAL.grassDark, 0.45);
+      rect(ctx, px + 6, py + 8, 2, 3, gs.tuft, 0.5);
+      rect(ctx, px + 14, py + 15, 2, 3, gs.tuft, 0.45);
     }
-    if (v === 2) rect(ctx, px + 18, py + 6, 2, 2, '#c3e096', 0.75);
-    if (neighbors.path) rect(ctx, px, py + ts - 2, ts, 2, PAL.grassEdge, 0.22);
-    if (neighbors.water) rect(ctx, px, py, ts, 2, '#cfe3a8', 0.3);
+    if (v === 2) rect(ctx, px + 18, py + 6, 2, 2, gs.spark, 0.75);
+    if (neighbors.path) rect(ctx, px, py + ts - 2, ts, 2, gs.edge, 0.22);
+    if (neighbors.water) rect(ctx, px, py, ts, 2, gs.shore, 0.3);
   } else if (key === 'path') {
     rect(ctx, px, py, ts, ts, '#dcb689');
     // 碎石：位置由格子哈希决定，跨格无缝
@@ -135,7 +144,16 @@ export function groundTile(ctx, terrain, px, py, ts, variant, neighbors = {}) {
 }
 
 // ---------- 树 ----------
-export function tree(ctx, px, py, ts, variant) {
+// 四季树冠：春绿、夏深、秋橙金、冬灰霜
+const TREE_SEASON = [
+  ['#2f5a2c', '#3d7038', '#4d8a42', '#5c9c4c', '#7fbd66'],
+  ['#2a5228', '#376533', '#467c3c', '#548f44', '#74ae5c'],
+  ['#8a5a28', '#a06c30', '#b87f38', '#c99245', '#e0b45e'],
+  ['#5a624f', '#6b7460', '#7c846e', '#8d957e', '#aab3a0'],
+];
+
+export function tree(ctx, px, py, ts, variant, season = 0) {
+  const S = TREE_SEASON[season % 4] || TREE_SEASON[0];
   const cx = px + ts / 2, base = py + ts - 2;
   rect(ctx, cx - 3, base - 10, 6, 10, PAL.woodDark);
   rect(ctx, cx - 3, base - 10, 3, 10, PAL.wood);
@@ -146,17 +164,17 @@ export function tree(ctx, px, py, ts, variant) {
   ctx.fillStyle = 'rgba(40,30,20,0.18)';
   ctx.beginPath(); ctx.ellipse(cx, base + 2, r * 0.9, r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
   for (const [ox, oy, rad, col] of [
-    [-r * 0.45, 2, r * 0.72, '#2f5a2c'],
-    [r * 0.45, 2, r * 0.72, '#2f5a2c'],
-    [0, -r * 0.42, r * 0.92, '#2f5a2c'],
-    [0, 0, r * 0.95, '#3d7038'],
-    [-r * 0.2, -r * 0.25, r * 0.55, '#4d8a42'],
-    [r * 0.15, -r * 0.05, r * 0.42, '#5c9c4c'],
+    [-r * 0.45, 2, r * 0.72, S[0]],
+    [r * 0.45, 2, r * 0.72, S[0]],
+    [0, -r * 0.42, r * 0.92, S[0]],
+    [0, 0, r * 0.95, S[1]],
+    [-r * 0.2, -r * 0.25, r * 0.55, S[2]],
+    [r * 0.15, -r * 0.05, r * 0.42, S[3]],
   ]) {
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.arc(cx + ox, cy + oy, rad, 0, Math.PI * 2); ctx.fill();
   }
-  rect(ctx, cx - r * 0.55, cy - r * 0.55, r * 0.35, r * 0.2, '#7fbd66', 0.85);
+  rect(ctx, cx - r * 0.55, cy - r * 0.55, r * 0.35, r * 0.2, S[4], 0.85);
 }
 
 // ---------- 作物 ----------

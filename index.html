@@ -65,17 +65,14 @@
     <button class="btn tiny" data-act="cancelBuild">取消 Esc</button>
   </div>
 
-  <div class="ordermenu" id="orderMenu" hidden>
-    <span class="bt-title">让他去做什么？</span>
-    <span class="bt-list">
-      <button class="btn tiny" data-order="work">去上工</button>
-      <button class="btn tiny" data-order="rest">回家休息</button>
-      <button class="btn tiny" data-order="talk">去聊聊</button>
-      <button class="btn tiny" data-order="school">去学堂</button>
-      <button class="btn tiny" data-order="buy">去市集</button>
-      <button class="btn tiny" data-order="patrol">去巡查</button>
-    </span>
-    <button class="btn tiny" data-act="cancelOrder">算了</button>
+  <div class="ordermenu" id="orderMenu" hidden></div>
+
+  <div class="onboard" id="onboard" hidden>
+    <div class="ob-step" id="obText"></div>
+    <div class="ob-foot">
+      <span class="ob-dots" id="obDots"></span>
+      <button class="btn tiny" id="obSkip">跳过引导</button>
+    </div>
   </div>
 
   <div class="toast" id="toast" hidden></div>

@@ -1,49 +1,49 @@
 {
   "schemaVersion": 1,
   "runId": "main-path",
-  "createdAt": "2026-11-23T15:26:42.666Z",
+  "createdAt": "2026-11-23T15:53:40.948Z",
   "environment": {
     "os": "win32 10.0.22000",
-    "node": "v24.13.1",
+    "node": "v24.21.0",
     "browser": "Chrome/157.0.8103.80",
-    "url": "http://127.0.0.1:11421/?seed=20261123",
+    "url": "http://127.0.0.1:1580/?seed=20261123",
     "viewport": "1280x800",
     "seed": 20261123,
     "timezone": "Asia/Shanghai"
   },
   "inputTrace": [
     {
-      "at": "2026-11-23T15:26:45.522Z",
+      "at": "2026-11-23T15:53:43.667Z",
       "action": "navigate",
-      "detail": "http://127.0.0.1:11421/?seed=20261123"
+      "detail": "http://127.0.0.1:1580/?seed=20261123"
     },
     {
-      "at": "2026-11-23T15:26:45.793Z",
+      "at": "2026-11-23T15:53:43.888Z",
       "action": "click",
       "detail": "speed 8x"
     },
     {
-      "at": "2026-11-23T15:26:47.889Z",
+      "at": "2026-11-23T15:53:45.962Z",
       "action": "click",
       "detail": "walk to tile 20,11"
     },
     {
-      "at": "2026-11-23T15:26:49.509Z",
+      "at": "2026-11-23T15:53:47.582Z",
       "action": "key",
       "detail": "Space (pause)"
     },
     {
-      "at": "2026-11-23T15:26:50.466Z",
+      "at": "2026-11-23T15:53:48.542Z",
       "action": "fast-forward",
       "detail": "480 ticks via sim.step(), sampling goals and acts"
     },
     {
-      "at": "2026-11-23T15:26:50.514Z",
+      "at": "2026-11-23T15:53:48.597Z",
       "action": "sandbox",
       "detail": "place bench blueprint and wait for the carpenter"
     },
     {
-      "at": "2026-11-23T15:26:51.662Z",
+      "at": "2026-11-23T15:53:49.804Z",
       "action": "reload",
       "detail": "reload, then restore from localStorage"
     }
@@ -76,8 +76,8 @@
         "visual": "qa/evidence/render-02-running.png",
         "boot": "qa/evidence/render-01-boot.png",
         "bytes": [
-          283762,
-          250890
+          292504,
+          260080
         ],
         "clock": [
           "第 1 天 06:05",
@@ -95,8 +95,8 @@
       "state": {
         "moved": 4,
         "pausedTick": {
-          "t0": 45,
-          "t1": 45
+          "t0": 44,
+          "t1": 44
         }
       }
     },
@@ -106,10 +106,10 @@
         "sim.step() x480"
       ],
       "state": {
-        "t0": 45,
-        "t1": 525,
+        "t0": 44,
+        "t1": 524,
         "logs0": 16,
-        "logs1": 123,
+        "logs1": 121,
         "goalKinds": [
           "eat",
           "relax",
@@ -119,12 +119,11 @@
           "work"
         ],
         "actKinds": [
+          "buyMeal",
           "chat",
-          "chop",
           "eat",
           "fish",
           "forage",
-          "harvest",
           "paint",
           "relax",
           "serve",
@@ -133,6 +132,7 @@
           "trade",
           "treat",
           "watch",
+          "water",
           "work"
         ],
         "needsMin": 0,
@@ -153,7 +153,7 @@
           "x": 7,
           "y": 2
         },
-        "steps": 157,
+        "steps": 181,
         "before": 3,
         "after": 4,
         "beauty": 7,
@@ -179,12 +179,12 @@
           "clock": "第 1 天 06:05"
         },
         "saved": {
-          "tick": 686,
+          "tick": 710,
           "npcs": 8,
           "decor": 7
         },
         "restored": {
-          "tick": 686,
+          "tick": 710,
           "npcs": 8,
           "decor": 7
         },

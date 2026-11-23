@@ -5,6 +5,8 @@ import { Renderer } from './render.js';
 import { UI } from './ui.js';
 import { saveConfig, clearConfig, polishLine } from './llm.js';
 import { DECOR_DEFS, JOBS } from './data.js';
+import { ORDER_KINDS } from './orders.js';
+import { relTag } from './social.js';
 import { play, unlockAudio, setMuted, isMuted } from './audio.js';
 import { kick } from './juice.js';
 
@@ -75,6 +77,7 @@ const ui = new UI({
     state.selectedId = id;
     ui.select(id);
     syncWho();
+    obAdvance('selected');
   },
   onBack() { state.selectedId = null; ui.selectedId = null; followId = null; ui.render(sim); syncWho(); },
   async onTalk(id) {
@@ -124,9 +127,9 @@ const ui = new UI({
     ui.toast(r.ok ? r.msg : r.msg);
     ui.render(sim);
   },
-  onOrder(id, kind) {
+  onOrder(id, kind, arg) {
     play('panel');
-    const r = sim.issueOrder(id, kind);
+    const r = sim.issueOrder(id, kind, arg);
     ui.toast(r.ok ? '吩咐下去了' : r.msg);
     ui.render(sim);
   },
@@ -267,6 +270,7 @@ canvas.addEventListener('click', (ev) => {
     if (res.ok) {
       ui.toast(`图纸已放下：${res.bp.name}。木匠会来处理。`, 2600);
       cancelPlacement();
+      obAdvance('built');
     } else {
       ui.toast(res.msg || '这里放不下。', 2600);
     }
@@ -277,9 +281,11 @@ canvas.addEventListener('click', (ev) => {
   if (npc) {
     state.selectedId = npc.id;
     ui.select(npc.id);
+    obAdvance('selected');
     return;
   }
   sim.setPlayerTarget(x, y);
+  obAdvance('moved');
   if (state.selectedId) { state.selectedId = null; ui.selectedId = null; }
 });
 
@@ -328,29 +334,62 @@ function syncWho() {
   whoChip.innerHTML = `<strong>${npc.name}</strong> · ${job} · ${goal} · 心情 ${Math.round(npc.mood)}`;
 }
 
+// 建造托盘：卡片式——图标、描述、材料（缺料标红）、工期
+const BUILD_GLYPH = { bench: '椅', garden: '花', fountain: '泉', lamp: '灯', cottage: '屋' };
+
 function openBuild() {
   buildList.innerHTML = '';
   for (const [id, def] of Object.entries(DECOR_DEFS)) {
     const b = document.createElement('button');
-    b.className = 'btn tiny';
+    b.className = 'bcard';
     b.dataset.build = id;
-    const cost = Object.entries(def.cost).map(([k, v]) => `${MAT_NAME[k] || k}${v}`).join(' ');
     const afford = Object.entries(def.cost).every(([k, v]) => (sim.world.stock[k] || 0) >= v);
     if (!afford) b.classList.add('poor');
-    b.innerHTML = `<b>${def.name}</b><em>${cost}</em>`;
+    const costs = Object.entries(def.cost).map(([k, v]) => {
+      const have = sim.world.stock[k] || 0;
+      return `<span class="bc-cost ${have >= v ? '' : 'lack'}">${MAT_NAME[k] || k} ${have >= v ? v : `${have}/${v}`}</span>`;
+    }).join('');
+    b.innerHTML = `<span class="bc-icon" style="--c:${def.color || '#c9a271'}">${BUILD_GLYPH[id] || '建'}</span><span class="bc-body"><b>${def.name}</b><em>${def.desc || ''}</em><span class="bc-costs">${costs}</span></span><span class="bc-time">工期约 ${def.buildTicks * 5} 分钟</span>`;
     buildList.appendChild(b);
   }
   buildTray.hidden = !buildTray.hidden;
   orderMenu.hidden = true;
   document.querySelector('[data-act="build"]').classList.toggle('on', !buildTray.hidden);
+  document.querySelector('[data-act="order"]').classList.remove('on');
+}
+
+// 指令菜单：先选做什么，「去聊聊」再选找谁
+function renderOrderMenu(npc, pickingFor = null) {
+  if (pickingFor) {
+    const rows = sim.npcs
+      .filter((n) => n.id !== npc.id)
+      .map((n) => {
+        const r = npc.rels.get(n.id);
+        const tag = r ? relTag(r.affinity) : '陌生';
+        const dist = Math.round(Math.hypot(n.x - npc.x, n.y - npc.y));
+        return `<button class="btn tiny opick" data-order-target="${n.id}" data-kind="${pickingFor}"><b>${n.name}</b><em>${tag} · ${dist} 格外</em></button>`;
+      }).join('');
+    orderMenu.innerHTML = `<span class="bt-title">让 ${npc.name} 去找谁聊？</span><span class="bt-list ob-grid">${rows || '<span class="bt-title">镇上没别人了。</span>'}</span><button class="btn tiny" data-act="orderBack">← 返回</button>`;
+    return;
+  }
+  const hint = npc.act?.id === 'sleep' ? '<span class="bt-title" style="color:#bf5442">他睡着了，指令叫不醒他。</span>' : '';
+  const btns = ORDER_KINDS.map((k) =>
+    `<button class="btn tiny" data-order="${k.id}" title="${k.hint}">${k.label}${k.id === 'talk' ? '…' : ''}</button>`).join('');
+  orderMenu.innerHTML = `<span class="bt-title">让 ${npc.name} 去做什么？</span>${hint}<span class="bt-list">${btns}</span><button class="btn tiny" data-act="cancelOrder">算了</button>`;
 }
 
 function openOrders() {
   const npc = state.selectedId ? sim.npcById(state.selectedId) : null;
-  if (!npc) { ui.toast('先选一个人。'); return; }
-  orderMenu.hidden = !orderMenu.hidden;
+  if (!npc) { ui.toast('先点一个人。'); return; }
+  if (orderMenu.hidden) {
+    renderOrderMenu(npc);
+    orderMenu.hidden = false;
+  } else {
+    orderMenu.hidden = true;
+  }
   buildTray.hidden = true;
   document.querySelector('[data-act="order"]').classList.toggle('on', !orderMenu.hidden);
+  document.querySelector('[data-act="build"]').classList.remove('on');
 }
 
 const MAT_NAME = { wood: '木', stone: '石', food: '粮', seeds: '种' };
@@ -390,13 +429,74 @@ buildList.addEventListener('click', (ev) => {
   document.querySelector('[data-act="build"]').classList.remove('on');
 });
 
-orderMenu.addEventListener('click', (ev) => {
-  const b = ev.target.closest('[data-order]');
-  if (!b || !state.selectedId) return;
-  ui.handlers.onOrder(state.selectedId, b.dataset.order);
+function closeOrderMenu() {
   orderMenu.hidden = true;
   document.querySelector('[data-act="order"]').classList.remove('on');
+}
+
+orderMenu.addEventListener('click', (ev) => {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  const npc = state.selectedId ? sim.npcById(state.selectedId) : null;
+  if (b.dataset.act === 'cancelOrder') { closeOrderMenu(); return; }
+  if (b.dataset.act === 'orderBack') { if (npc) renderOrderMenu(npc); return; }
+  if (!npc) { closeOrderMenu(); return; }
+  if (b.dataset.orderTarget) {
+    ui.handlers.onOrder(npc.id, b.dataset.kind, b.dataset.orderTarget);
+    closeOrderMenu();
+    return;
+  }
+  if (b.dataset.order) {
+    if (b.dataset.order === 'talk') { renderOrderMenu(npc, 'talk'); return; }
+    ui.handlers.onOrder(npc.id, b.dataset.order);
+    closeOrderMenu();
+  }
 });
+
+// ---- 新手引导：三步，走完或跳过就写 localStorage，不再出现 ----
+const ONBOARD_KEY = 'xigu-onboard-v1';
+const obEl = document.getElementById('onboard');
+const obText = document.getElementById('obText');
+const obDots = document.getElementById('obDots');
+const OB_STEPS = [
+  { key: 'moved', text: '第一步：在地图上点一下，让「旅人」走过去。' },
+  { key: 'selected', text: '第二步：点一位居民，看看他的档案——性格、渴望、秘密都在里面。' },
+  { key: 'built', text: '第三步：按 B 或点右下角「建造」，挑一块草地放下一张图纸，木匠会自己来建。' },
+];
+const obFlags = { moved: false, selected: false, built: false };
+let obStep = 0;
+
+function obRender() {
+  if (obEl.hidden) return;
+  if (obStep >= OB_STEPS.length) { obFinish(); return; }
+  obText.textContent = OB_STEPS[obStep].text;
+  obDots.innerHTML = OB_STEPS.map((_, i) =>
+    `<i class="${i < obStep ? 'done' : i === obStep ? 'now' : ''}"></i>`).join('');
+}
+
+function obStart() {
+  try { if (localStorage.getItem(ONBOARD_KEY)) return; } catch { /* 隐私模式下随它去 */ }
+  obStep = 0;
+  obEl.hidden = false;
+  obRender();
+}
+
+function obAdvance(key) {
+  if (obEl.hidden) return;
+  obFlags[key] = true;
+  while (obStep < OB_STEPS.length && obFlags[OB_STEPS[obStep].key]) obStep++;
+  if (obStep >= OB_STEPS.length) {
+    ui.toast('引导完成。这个镇子归你看了——空格暂停，1/2/4/8 变速。', 3600);
+  }
+  obRender();
+}
+
+function obFinish() {
+  obEl.hidden = true;
+  try { localStorage.setItem(ONBOARD_KEY, '1'); } catch { /* 同上 */ }
+}
+
+document.getElementById('obSkip').addEventListener('click', () => { play('click'); obFinish(); });
 
 // ---- 相机：滚轮缩放、右键/Shift 拖动、WASD ----------------------------
 canvas.addEventListener('wheel', (ev) => {
@@ -518,6 +618,7 @@ const params = new URLSearchParams(location.search);
 const seedParam = Number(params.get('seed'));
 boot(Number.isFinite(seedParam) && seedParam > 0 ? seedParam : 20261123);
 syncSpeedbar();
+obStart();
 ui.toast('空格暂停 · 1/2/4/8 变速 · P 显示目标 · Ctrl+S 保存', 3600);
 window.__sim = () => sim;
 window.__ui = ui;

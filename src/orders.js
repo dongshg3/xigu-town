@@ -25,12 +25,20 @@ export function issueOrder(sim, npcId, kind, arg) {
   const isMayor = sim.town?.mayor === 'player';
   if (!near && !isMayor) return { ok: false, msg: '离得太远，先走近他再说。' };
 
+  let orderLabel = label(kind);
+  if (kind === 'talk' && arg) {
+    const target = sim.npcById(arg);
+    if (!target) return { ok: false, msg: '没这个人。' };
+    if (target.id === npc.id) return { ok: false, msg: '他不能跟自己聊。' };
+    orderLabel = `去找${target.name}聊聊`;
+  }
+
   const order = {
     kind,
     arg: arg ?? null,
     issued: sim.tick,
     deadline: sim.tick + 160,
-    label: label(kind),
+    label: orderLabel,
   };
   npc.order = order;
   npc.plan = [];

@@ -1,7 +1,7 @@
 // sim.js — the simulation: clock, residents, economy, player, persistence.
 import { RNG, clockOf, clamp } from './core.js';
 import { World, TILE } from './world.js';
-import { PROFILES, WEATHERS, JOBS, SEX, AGE } from './data.js';
+import { PROFILES, WEATHERS, SEASONS, JOBS, SEX, AGE } from './data.js';
 import { NPC } from './agent.js';
 import { pickPlan } from './goals.js';
 import { chatter, pairCompatibility, playerTalk, playerGift } from './social.js';
@@ -315,13 +315,27 @@ export class Simulation {
     // 铁牛的商队每早补一次货
     this.world.stock.food = Math.min(60, (this.world.stock.food || 0) + 14);
     this.log('铁牛的驮队从镇口进来，卸下几袋粮食。', 'economy', ['niu']);
-    const w = this.rng.pick(WEATHERS);
+    const season = SEASONS[this.clock.season] || SEASONS[0];
+    const w = this.rng.weighted(WEATHERS, (x) => season.weather[x.id] ?? 1);
     this.weather = w;
     this.weatherId = w.id;
     if (w.id === 'rain') this.world.weather = 'rain';
     else this.world.weather = w.id;
     const c = this.clock;
     this.log(`第 ${c.day} 天。${w.label}。`, 'system', []);
+    // 换季值得说一句：颜色会变，地里的长势也会变
+    if ((c.day - 1) % 7 === 0 && c.day > 1) {
+      const lines = {
+        春: '开春了，地气往上返，庄稼肯长。',
+        夏: '入了夏，日头毒，蝉鸣一阵接一阵。',
+        秋: '秋风一起，叶子开始泛黄，收成该归仓了。',
+        冬: '入冬了，地里歇了，人也想往屋里缩。',
+      };
+      this.log(lines[season.label] || `换季：${season.label}。`, 'system', []);
+      for (const n of this.npcs) {
+        n.addMemory?.({ text: `换季了，${lines[season.label] || ''}`, valence: 0.3, strength: 0.3, kind: 'town', about: [] });
+      }
+    }
     for (const n of this.npcs) dailyMoodUpdate(n, this);
     settleDay(this);
     tickPolitics(this);
@@ -352,7 +366,7 @@ export class Simulation {
       this.lastDay = c.day;
       this.dayRollover();
     }
-    this.world.tickCrops(0.085, this.weather.crop ? 1.4 : 0);
+    this.world.tickCrops(0.085 * (SEASONS[this.clock.season]?.crop ?? 1), this.weather.crop ? 1.4 : 0);
     for (const n of this.npcs) n.update(this);
     if (this.tick % 20 === 0) seekCare(this);
     if (this.tick % 5 === 0) tickCrime(this);

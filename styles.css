@@ -356,3 +356,90 @@ button.mini:hover { border-color: #8b7456; background: #232a33; }
   .side { width: 340px; flex-basis: 340px; }
   .act { min-width: 52px; font-size: 12px; }
 }
+
+
+/* ---- 新手引导浮条 ---- */
+.onboard {
+  position: fixed;
+  left: 24px;
+  top: 72px;
+  z-index: 40;
+  width: min(400px, calc(100vw - 48px));
+  background: linear-gradient(#fffdf4, #f6e8cc);
+  border: 2px solid #c8901f;
+  border-radius: 14px;
+  padding: 12px 16px 10px;
+  box-shadow: 0 8px 24px rgba(90, 66, 32, .3), 0 2px 0 #bda37a;
+}
+.ob-step { font-size: 14px; font-weight: 600; color: #4a3826; line-height: 1.6; }
+.ob-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.ob-dots { display: flex; gap: 6px; }
+.ob-dots i { width: 9px; height: 9px; border-radius: 50%; background: #dcc6a2; }
+.ob-dots i.now { background: #c8901f; box-shadow: 0 0 8px rgba(200, 144, 31, .7); }
+.ob-dots i.done { background: #5e9440; }
+
+/* ---- 建造卡片 ---- */
+#buildList { display: flex; gap: 10px; flex-wrap: wrap; }
+.bcard {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  align-items: center;
+  width: 218px;
+  padding: 9px 10px;
+  text-align: left;
+  font-family: inherit;
+  background: linear-gradient(#fffdf6, #f2e3c4);
+  border: 2px solid #c9a97a;
+  border-radius: 12px;
+  box-shadow: 0 2px 0 #bda37a;
+  cursor: pointer;
+  transition: transform .08s, border-color .12s;
+}
+.bcard:hover { border-color: #b08f4a; transform: translateY(-1px); }
+.bcard:active { transform: translateY(1px); box-shadow: none; }
+.bcard.poor { opacity: .55; }
+.bcard.poor .bc-icon { filter: grayscale(.6); }
+.bc-icon {
+  grid-row: 1 / 3;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border-radius: 10px;
+  background: var(--c, #c9a271);
+  color: #fff8e8;
+  font-size: 19px; font-weight: 700;
+  text-shadow: 0 1px 2px rgba(60, 40, 16, .5);
+  border: 2px solid rgba(90, 60, 30, .35);
+}
+.bc-body { min-width: 0; }
+.bc-body b { font-size: 13px; color: #4a3826; }
+.bc-body em {
+  display: block; font-style: normal; font-size: 11px; color: #8b7456;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bc-costs { display: flex; gap: 5px; margin-top: 3px; flex-wrap: wrap; }
+.bc-cost {
+  font-size: 10.5px; padding: 1px 6px; border-radius: 999px;
+  background: #eef4e2; border: 1px solid #9dbb89; color: #3f5330;
+}
+.bc-cost.lack { background: #fbeae4; border-color: #cf9a90; color: #8c4436; }
+.bc-time { grid-column: 2; font-size: 10px; color: #a08a63; margin-top: 3px; }
+
+/* ---- 指令选人 ---- */
+.ob-grid { display: grid; grid-template-columns: repeat(4, minmax(96px, 1fr)); gap: 6px; }
+.opick { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.opick em { font-style: normal; font-size: 10px; color: #a08a63; }
+
+@media (max-width: 900px) {
+  .topbar { gap: 10px; padding: 0 10px; }
+  .brand em { display: none; }
+  .side { width: 300px; flex-basis: 300px; }
+  .panel { padding: 10px; }
+  .act { min-width: 44px; padding: 0 6px; }
+  .act em { display: none; }
+  .hint { display: none; }
+  .buildtray, .ordermenu { bottom: 70px; max-width: calc(100vw - 20px); }
+  .ob-grid { grid-template-columns: repeat(3, minmax(88px, 1fr)); }
+  .bcard { width: 200px; }
+}

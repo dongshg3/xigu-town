@@ -3,7 +3,6 @@
 // only saturated thing in the frame. State is told by posture, props and light,
 // never by floating bars stuck to a head.
 import { hash2, clamp } from './core.js';
-import { TILE as T } from './world.js';
 import { DECOR_DEFS } from './data.js';
 
 import * as art from './art.js';
@@ -162,6 +161,7 @@ export class Renderer {
   // ---- ground ----------------------------------------------------------
   drawTiles(sim) {
     const w = sim.world;
+    const season = sim.clock.season || 0;
     for (let y = 0; y < w.h; y++) {
       for (let x = 0; x < w.w; x++) {
         const t = w.tile(x, y);
@@ -171,7 +171,7 @@ export class Renderer {
           path: w.tile(x, y + 1)?.terrain === 'path' || w.tile(x, y - 1)?.terrain === 'path',
           water: w.tile(x, y - 1)?.terrain === 'water' || w.tile(x + 1, y)?.terrain === 'water',
         };
-        art.groundTile(this.ctx, t.terrain, x * TS, y * TS, TS, v, nb);
+        art.groundTile(this.ctx, t.terrain, x * TS, y * TS, TS, v, nb, season);
       }
     }
   }
@@ -223,7 +223,7 @@ export class Renderer {
         if (!t || !t.obj) continue;
         const px = x * TS, py = y * TS;
         const o = t.obj;
-        if (o.type === 'tree') art.tree(this.ctx, px, py, TS, art.hash(x, y));
+        if (o.type === 'tree') art.tree(this.ctx, px, py, TS, art.hash(x, y), sim.clock.season || 0);
         else if (o.type === 'rock') {
           this.ctx.fillStyle = 'rgba(40,30,20,0.2)';
           this.ctx.beginPath(); this.ctx.ellipse(px + 13, py + 22, 7, 3, 0, 0, Math.PI * 2); this.ctx.fill();
@@ -643,18 +643,38 @@ export class Renderer {
 
     if (state.placement) {
       const def = DECOR_DEFS[state.placement];
-      const tile = sim.world.tile(x, y);
-      const ok = tile?.terrain === T.GRASS && !tile?.obj && !tile?.building;
-      ctx.fillStyle = ok ? 'rgba(120,190,110,.32)' : 'rgba(210,100,90,.32)';
+      // 周围一圈也画上底色：绿的能放，红的被占，玩家一眼看出哪里有空地
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = x + dx, ny = y + dy;
+          if (!sim.world.inBounds(nx, ny)) continue;
+          const free = sim.world.canPlace(state.placement, nx, ny, { ...sim.world.stock, wood: 1e9, stone: 1e9, food: 1e9, seeds: 1e9, coins: 1e9 }).ok;
+          ctx.fillStyle = free ? 'rgba(120,190,110,.10)' : 'rgba(210,100,90,.10)';
+          ctx.fillRect(nx * TS + 3, ny * TS + 3, TS - 6, TS - 6);
+        }
+      }
+      const chk = sim.world.canPlace(state.placement, x, y, sim.world.stock);
+      ctx.fillStyle = chk.ok ? 'rgba(120,190,110,.34)' : 'rgba(210,100,90,.34)';
       ctx.fillRect(x * TS + 2, y * TS + 2, TS - 4, TS - 4);
-      ctx.strokeStyle = ok ? '#9ed28e' : '#e08c7a';
+      ctx.strokeStyle = chk.ok ? '#9ed28e' : '#e08c7a';
       ctx.lineWidth = 1.5;
       ctx.strokeRect(x * TS + 2, y * TS + 2, TS - 4, TS - 4);
       if (def) {
-        ctx.font = '9px "Microsoft YaHei", sans-serif';
-        ctx.fillStyle = '#fff';
+        const RES = { wood: '木', stone: '石', food: '粮', seeds: '种', coins: '钱' };
+        const cost = Object.entries(def.cost).map(([k, v]) => `${RES[k] || k}${v}`).join(' ');
+        const line = chk.ok ? `${def.name} · ${cost}` : chk.reason;
+        ctx.font = '10px "Microsoft YaHei", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(def.name, x * TS + TS / 2, y * TS - 3);
+        ctx.textBaseline = 'middle';
+        const tw = ctx.measureText(line).width + 14;
+        const bx = clamp(x * TS + TS / 2 - tw / 2, 3, this.w - tw - 3);
+        const by = Math.max(4, y * TS - 24);
+        ctx.fillStyle = chk.ok ? 'rgba(24,34,22,.92)' : 'rgba(52,22,18,.92)';
+        roundRect(ctx, bx, by, tw, 17, 6);
+        ctx.fill();
+        ctx.fillStyle = chk.ok ? '#cfe8b8' : '#f2b8a8';
+        ctx.fillText(line, bx + tw / 2, by + 9);
       }
       return;
     }

@@ -322,16 +322,29 @@ export class World {
     }
   }
 
+  // 放置前置检查：UI 预览与 placeBlueprint 共用同一份判断，理由要具体，
+  // 玩家才知道是"有东西"还是"没钱"。
+  canPlace(type, x, y, stock = this.stock) {
+    const def = DECOR_DEFS[type];
+    if (!def) return { ok: false, reason: '未知建筑' };
+    const t = this.tile(x, y);
+    if (!t) return { ok: false, reason: '超出地图' };
+    if (this.streetTiles.some((s) => s.x === x && s.y === y)) return { ok: false, reason: '不能挡住主街' };
+    if (t.building) return { ok: false, reason: '这里有一栋房子' };
+    if (t.terrain !== TILE.GRASS) return { ok: false, reason: '只能放在草地上' };
+    if (t.crop) return { ok: false, reason: '农田里不能放' };
+    if (t.obj) return { ok: false, reason: '这里有东西挡着' };
+    const RES = { wood: '木材', stone: '石料', food: '食物', seeds: '种子', coins: '硬币' };
+    for (const [k, v] of Object.entries(def.cost)) {
+      if ((stock[k] || 0) < v) return { ok: false, reason: `资源不足：${RES[k] || k}需要 ${v}` };
+    }
+    return { ok: true, reason: '' };
+  }
+
   placeBlueprint(type, x, y, stock) {
     const def = DECOR_DEFS[type];
-    if (!def) return { ok: false, msg: '未知建筑' };
-    const t = this.tile(x, y);
-    if (!t) return { ok: false, msg: '超出地图' };
-    if (t.terrain !== TILE.GRASS || t.obj || t.building || t.crop) return { ok: false, msg: '这里已经有东西了' };
-    if (this.streetTiles.some((s) => s.x === x && s.y === y)) return { ok: false, msg: '不能挡住主街' };
-    for (const [k, v] of Object.entries(def.cost)) {
-      if ((stock[k] || 0) < v) return { ok: false, msg: `资源不足：${k} 需要 ${v}` };
-    }
+    const chk = this.canPlace(type, x, y, stock);
+    if (!chk.ok) return { ok: false, msg: chk.reason };
     for (const [k, v] of Object.entries(def.cost)) stock[k] -= v;
     const bp = { id: uid('bp'), type, x, y, progress: 0, need: def.buildTicks, name: def.name };
     this.blueprints.push(bp);

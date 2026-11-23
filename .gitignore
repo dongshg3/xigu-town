@@ -3,3 +3,6 @@ node_modules/
 *.log
 # 本地随手截的图，不算交付物
 shots/
+
+# Chrome 验证用的临时 profile
+qa/.chrome-profile*/

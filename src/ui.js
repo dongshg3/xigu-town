@@ -99,7 +99,7 @@ export class UI {
 
   updateClock(sim) {
     this.clockEl.textContent = sim.clock.label;
-    this.weatherEl.textContent = sim.weather.label;
+    this.weatherEl.textContent = `${sim.clock.seasonLabel}季 · ${sim.weather.label}`;
   }
 
   update(sim) {

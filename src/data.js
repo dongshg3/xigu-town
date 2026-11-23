@@ -219,6 +219,15 @@ export const WEATHERS = [
   { id: 'wind', label: '风', work: 0.95, fun: 1.02, crop: 0 },
 ];
 
+// 四季：7 天一季，28 天一轮。crop 是作物长势倍率，weather 是次日天气的抽签权重。
+// 冬天几乎长不动，逼农夫去干点别的；春秋雨水多，夏天日头毒。
+export const SEASONS = [
+  { id: 'spring', label: '春', crop: 1.25, weather: { sunny: 3, cloud: 2, rain: 3, wind: 1 } },
+  { id: 'summer', label: '夏', crop: 1.0, weather: { sunny: 5, cloud: 2, rain: 1, wind: 1 } },
+  { id: 'autumn', label: '秋', crop: 0.8, weather: { sunny: 2, cloud: 3, rain: 2, wind: 3 } },
+  { id: 'winter', label: '冬', crop: 0.35, weather: { sunny: 2, cloud: 4, rain: 1, wind: 2 } },
+];
+
 export const LOG_KINDS = ['system', 'social', 'work', 'build', 'drama'];
 
 // 说话倾向：不是台词，是"这个人一开口更可能往哪个方向走"。
