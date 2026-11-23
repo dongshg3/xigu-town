@@ -23,7 +23,7 @@
   "limitations": [
     {
       "scope": "audio",
-      "reason": "the prototype has no sound; nothing is verified for audio feedback"
+      "reason": "sounds are synthesized at runtime; their presence is not asserted by the harness"
     },
     {
       "scope": "touch / narrow screens",

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "溪谷镇 — 2D 角色扮演 + 模拟经营 + 高自主 NPC 生活模拟原型",
+  "description": "溪谷镇：2D 角色扮演 + 模拟经营 + 高自主 NPC 生活模拟原型",
   "scripts": {
     "dev": "node server.mjs",
     "smoke": "node scripts/smoke.mjs",

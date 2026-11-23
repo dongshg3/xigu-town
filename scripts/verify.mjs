@@ -404,7 +404,7 @@ async function main() {
       },
       checks: Object.fromEntries(Object.entries(results).map(([k, v]) => [k, v.status])),
       limitations: [
-        { scope: 'audio', reason: 'the prototype has no sound; nothing is verified for audio feedback' },
+        { scope: 'audio', reason: 'sounds are synthesized at runtime; their presence is not asserted by the harness' },
         { scope: 'touch / narrow screens', reason: 'verified at 1280x800 desktop viewport only' },
         { scope: 'long-run balance', reason: 'headless smoke covers 7 in-game days; multi-week pacing is probe data, not a verified outcome' },
       ],
