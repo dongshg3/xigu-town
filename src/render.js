@@ -6,6 +6,8 @@ import { hash2, clamp } from './core.js';
 import { TILE as T } from './world.js';
 import { DECOR_DEFS } from './data.js';
 
+import * as art from './art.js';
+
 export const TS = 26;
 
 const TERRAIN_COLORS = {
@@ -107,53 +109,17 @@ export class Renderer {
 
   // ---- ground ----------------------------------------------------------
   drawTiles(sim) {
-    const ctx = this.ctx;
-    const { world } = sim;
-    for (let y = 0; y < world.h; y++) {
-      for (let x = 0; x < world.w; x++) {
-        const t = world.tile(x, y);
+    const w = sim.world;
+    for (let y = 0; y < w.h; y++) {
+      for (let x = 0; x < w.w; x++) {
+        const t = w.tile(x, y);
         if (!t) continue;
-        const px = x * TS, py = y * TS;
-        ctx.fillStyle = this.colorFor(t.terrain, t.variant, x, y);
-        ctx.fillRect(px, py, TS + 1, TS + 1);
-
-        // large-scale light patches keep the field from reading as noise
-        const patch = hash2(Math.floor(x / 4), Math.floor(y / 3), 21);
-        if (patch > 0.78) {
-          ctx.fillStyle = 'rgba(255,240,190,.045)';
-          ctx.fillRect(px, py, TS + 1, TS + 1);
-        } else if (patch < 0.18) {
-          ctx.fillStyle = 'rgba(20,40,25,.05)';
-          ctx.fillRect(px, py, TS + 1, TS + 1);
-        }
-
-        if (t.terrain === T.GRASS) {
-          this.drawGrassTuft(x, y, px, py);
-        } else if (t.terrain === T.WATER) {
-          const w1 = Math.sin(this.time * 0.9 + x * 0.7 + y * 0.4) * 2;
-          ctx.strokeStyle = 'rgba(205,232,255,.20)';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(px + 5, py + 11 + w1);
-          ctx.quadraticCurveTo(px + 13, py + 8 + w1, px + 21, py + 11 + w1);
-          ctx.stroke();
-          ctx.strokeStyle = 'rgba(12,36,60,.10)';
-          ctx.beginPath();
-          ctx.moveTo(px + 8, py + 19 - w1);
-          ctx.quadraticCurveTo(px + 14, py + 17 - w1, px + 20, py + 19 - w1);
-          ctx.stroke();
-        } else if (t.terrain === T.SOIL) {
-          ctx.fillStyle = 'rgba(40,25,15,.20)';
-          for (let i = 0; i < 3; i++) ctx.fillRect(px + 4, py + 6 + i * 7, TS - 8, 1);
-          ctx.fillStyle = 'rgba(255,235,200,.05)';
-          ctx.fillRect(px + 4, py + 5, TS - 8, 1);
-        } else if (t.terrain === T.PATH) {
-          this.drawCobble(x, y, px, py);
-        } else if (t.terrain === T.SAND) {
-          ctx.fillStyle = 'rgba(255,255,255,.06)';
-          ctx.fillRect(px + 4, py + 6, 3, 2);
-          ctx.fillRect(px + 16, py + 17, 3, 2);
-        }
+        const v = art.hash(x, y);
+        const nb = {
+          path: w.tile(x, y + 1)?.terrain === 'path' || w.tile(x, y - 1)?.terrain === 'path',
+          water: w.tile(x, y - 1)?.terrain === 'water' || w.tile(x + 1, y)?.terrain === 'water',
+        };
+        art.groundTile(this.ctx, t.terrain, x * TS, y * TS, TS, v, nb);
       }
     }
   }
@@ -198,92 +164,50 @@ export class Renderer {
 
   // ---- objects ---------------------------------------------------------
   drawGroundObjects(sim) {
-    const ctx = this.ctx;
-    const { world } = sim;
-    const sway = Math.sin(this.time * 1.4) * 0.6;
-    for (const t of world.tiles) {
-      if (!t.obj) continue;
-      const x = t.x * TS, y = t.y * TS;
-      const o = t.obj;
-      if (o.type === 'tree') {
-        ctx.fillStyle = 'rgba(20,30,15,.22)';
-        ctx.beginPath(); ctx.ellipse(x + 14, y + 23, 9, 4, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#6b4b2e';
-        ctx.fillRect(x + 11, y + 13, 4, 10);
-        const greens = ['#2f6b34', '#357a39', '#2b6230', '#3d8340'];
-        ctx.fillStyle = greens[o.variant % greens.length];
-        ctx.beginPath();
-        ctx.arc(x + 13 + sway, y + 10, 9, 0, Math.PI * 2);
-        ctx.arc(x + 7 + sway, y + 13, 6, 0, Math.PI * 2);
-        ctx.arc(x + 19 + sway, y + 13, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,.10)';
-        ctx.beginPath(); ctx.arc(x + 10 + sway, y + 7, 4, 0, Math.PI * 2); ctx.fill();
-      } else if (o.type === 'stump') {
-        ctx.fillStyle = '#6a5336';
-        ctx.beginPath(); ctx.ellipse(x + 13, y + 15, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#8a6d47';
-        ctx.beginPath(); ctx.ellipse(x + 13, y + 14, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
-      } else if (o.type === 'rock') {
-        ctx.fillStyle = '#8a9096';
-        ctx.beginPath(); ctx.ellipse(x + 13, y + 15, 7, 5, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#a9b0b6';
-        ctx.beginPath(); ctx.ellipse(x + 11, y + 13, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
-      } else if (o.type === 'flower') {
-        const cols = ['#e3c76a', '#d98cc0', '#e08c7a', '#9fc9e8'];
-        ctx.fillStyle = cols[o.variant % cols.length];
+    const w = sim.world;
+    for (let y = 0; y < w.h; y++) {
+      for (let x = 0; x < w.w; x++) {
+        const t = w.tile(x, y);
+        if (!t || !t.obj) continue;
+        const px = x * TS, py = y * TS;
+        const o = t.obj;
+        if (o.type === 'tree') art.tree(this.ctx, px, py, TS, art.hash(x, y));
+        else if (o.type === 'rock') {
+          this.ctx.fillStyle = 'rgba(40,30,20,0.2)';
+          this.ctx.beginPath(); this.ctx.ellipse(px + 13, py + 22, 7, 3, 0, 0, Math.PI * 2); this.ctx.fill();
+          art.outlined(this.ctx, px + 6, py + 13, 14, 10, '#a8adb3', '#4a4a4a', 2);
+          art.rect(this.ctx, px + 8, py + 15, 5, 3, '#c9ced4');
+        } else if (o.type === 'flower') {
+          const c = ['#f0a6c0', '#f6d06a', '#c9a6f0'][art.hash(x, y) % 3];
+          art.rect(this.ctx, px + 12, py + 10, 2, 6, '#4f7a3a');
+          this.ctx.fillStyle = c;
+          this.ctx.beginPath(); this.ctx.arc(px + 13, py + 9, 3.5, 0, Math.PI * 2); this.ctx.fill();
+          art.rect(this.ctx, px + 12.5, py + 9, 2, 2, '#fff3c4');
+        }
+      }
+    }
+    for (const d of w.decor || []) {
+      const px = d.x * TS, py = d.y * TS;
+      if (d.type === 'bench') {
+        art.outlined(this.ctx, px + 3, py + 10, 20, 8, art.PAL.wood, art.PAL.ink, 2);
+        art.rect(this.ctx, px + 3, py + 10, 20, 3, art.PAL.woodLight);
+        art.rect(this.ctx, px + 5, py + 18, 3, 5, art.PAL.woodDark);
+        art.rect(this.ctx, px + 18, py + 18, 3, 5, art.PAL.woodDark);
+      } else if (d.type === 'lamp') {
+        art.rect(this.ctx, px + 12, py + 8, 3, 15, art.PAL.ink);
+        art.rect(this.ctx, px + 8, py + 4, 11, 7, art.PAL.ink);
+        art.rect(this.ctx, px + 9, py + 5, 9, 5, '#f7d795');
+      } else if (d.type === 'fountain') {
+        art.outlined(this.ctx, px + 2, py + 8, 22, 14, art.PAL.stone, '#4a4a4a', 2);
+        art.rect(this.ctx, px + 5, py + 11, 16, 8, art.PAL.water);
+        art.rect(this.ctx, px + 5, py + 11, 16, 2, art.PAL.foam, 0.7);
+        art.rect(this.ctx, px + 12, py + 14, 3, 8, '#cfd6dd');
+      } else if (d.type === 'garden') {
         for (let i = 0; i < 3; i++) {
-          const a = (i / 3) * Math.PI * 2 + hash2(t.x, t.y, i) * 2;
-          ctx.beginPath(); ctx.arc(x + 13 + Math.cos(a) * 5, y + 13 + Math.sin(a) * 5, 2, 0, Math.PI * 2); ctx.fill();
+          art.rect(this.ctx, px + 4 + i * 7, py + 14, 3, 6, '#4f7a3a');
+          this.ctx.fillStyle = ['#f0a6c0', '#f6d06a', '#c9a6f0'][(i + d.x) % 3];
+          this.ctx.beginPath(); this.ctx.arc(px + 5.5 + i * 7, py + 12, 3, 0, Math.PI * 2); this.ctx.fill();
         }
-        ctx.fillStyle = '#6f8f4a';
-        ctx.fillRect(x + 12, y + 17, 1, 3);
-      } else if (o.type === 'bench') {
-        ctx.fillStyle = 'rgba(20,25,30,.22)';
-        ctx.fillRect(x + 4, y + 19, 18, 3);
-        ctx.fillStyle = '#b98455';
-        ctx.fillRect(x + 4, y + 11, 18, 4);
-        ctx.fillStyle = '#c99462';
-        ctx.fillRect(x + 4, y + 16, 18, 3);
-        ctx.fillStyle = '#7d5a38';
-        ctx.fillRect(x + 6, y + 19, 2, 4);
-        ctx.fillRect(x + 18, y + 19, 2, 4);
-        ctx.fillStyle = 'rgba(0,0,0,.14)';
-        ctx.fillRect(x + 4, y + 14, 18, 1);
-      } else if (o.type === 'lamp') {
-        ctx.fillStyle = 'rgba(15,20,25,.25)';
-        ctx.beginPath(); ctx.ellipse(x + 13, y + 22, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#5f5546';
-        ctx.fillRect(x + 12, y + 8, 2, 14);
-        ctx.fillStyle = '#4a4235';
-        ctx.fillRect(x + 10, y + 21, 6, 2);
-        ctx.fillStyle = '#f0dc9a';
-        ctx.beginPath(); ctx.arc(x + 13, y + 7, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = 'rgba(255,246,205,.8)';
-        ctx.beginPath(); ctx.arc(x + 13, y + 6.5, 2, 0, Math.PI * 2); ctx.fill();
-      } else if (o.type === 'garden') {
-        ctx.fillStyle = '#6b4f33';
-        ctx.fillRect(x + 3, y + 6, 20, 15);
-        ctx.fillStyle = '#5c432b';
-        ctx.fillRect(x + 3, y + 6, 20, 2);
-        const cols = ['#e3c76a', '#d98cc0', '#e08c7a', '#9fc9e8'];
-        for (let i = 0; i < 5; i++) {
-          ctx.fillStyle = cols[i % cols.length];
-          ctx.beginPath(); ctx.arc(x + 7 + i * 4, y + 10 + (i % 2) * 5, 2, 0, Math.PI * 2); ctx.fill();
-        }
-      } else if (o.type === 'fountain') {
-        ctx.fillStyle = 'rgba(10,20,30,.18)';
-        ctx.beginPath(); ctx.ellipse(x + 13, y + 17, 12, 8, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#8d98a2';
-        ctx.beginPath(); ctx.ellipse(x + 13, y + 15, 11, 9, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#5aa0d0';
-        ctx.beginPath(); ctx.ellipse(x + 13, y + 15, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(230,245,255,.45)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.ellipse(x + 13, y + 15, 5, 3.5, 0, 0, Math.PI * 2); ctx.stroke();
-        const h = 4 + Math.sin(this.time * 2 + t.x) * 2;
-        ctx.fillStyle = 'rgba(230,245,255,.75)';
-        ctx.fillRect(x + 12, y + 9 - h, 2, 6 + h);
       }
     }
   }
@@ -328,119 +252,11 @@ export class Renderer {
 
   // ---- buildings -------------------------------------------------------
   drawBuildings(sim) {
-    const ctx = this.ctx;
-    for (const b of sim.world.buildings) {
+    const night = this.nightAmount(sim);
+    for (const b of sim.world.buildings || []) {
       const x = b.x * TS, y = b.y * TS, w = b.w * TS, h = b.h * TS;
-
-      ctx.fillStyle = 'rgba(15,20,25,.28)';
-      roundRect(ctx, x + 4, y + 7, w, h, 5); ctx.fill();
-
-      ctx.fillStyle = b.style.wall;
-      roundRect(ctx, x, y, w, h, 5); ctx.fill();
-
-      // interior floor: horizontal boards, warm and a step lighter than the wall
-      ctx.fillStyle = shade(b.style.wall, 15);
-      roundRect(ctx, x + 7, y + 7, w - 14, h - 14, 3); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.14)';
-      ctx.lineWidth = 1;
-      for (let fy = y + 16; fy < y + h - 10; fy += 10) {
-        ctx.beginPath(); ctx.moveTo(x + 8, fy); ctx.lineTo(x + w - 8, fy); ctx.stroke();
-      }
-      ctx.strokeStyle = b.style.trim;
-      ctx.lineWidth = 2;
-      roundRect(ctx, x + 7, y + 7, w - 14, h - 14, 3); ctx.stroke();
-
-      // roof: a band along the top edge, lighter ridge line on top of it
-      ctx.fillStyle = b.style.roof;
-      roundRect(ctx, x + 2, y + 2, w - 4, 9, 4); ctx.fill();
-      ctx.fillStyle = alpha('#ffffff', 0.13);
-      ctx.fillRect(x + 6, y + 4, w - 12, 1.5);
-      ctx.fillStyle = 'rgba(20,16,12,.18)';
-      ctx.fillRect(x + 4, y + 10, w - 8, 1.5);
-
-      // windows on the front wall
-      const lit = this.nightAmount(sim) > 0.18;
-      for (const wr of windowRects(b)) {
-        ctx.fillStyle = lit ? '#f2ce86' : '#c2b79f';
-        ctx.fillRect(wr.x, wr.y, wr.w, wr.h);
-        ctx.fillStyle = lit ? 'rgba(255,236,190,.75)' : 'rgba(255,250,235,.35)';
-        ctx.fillRect(wr.x + 1, wr.y + 1, wr.w - 2, 2);
-        ctx.strokeStyle = 'rgba(40,32,24,.45)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(wr.x + 0.5, wr.y + 0.5, wr.w - 1, wr.h - 1);
-        ctx.beginPath(); ctx.moveTo(wr.x + wr.w / 2, wr.y); ctx.lineTo(wr.x + wr.w / 2, wr.y + wr.h); ctx.stroke();
-      }
-
-      // door + step
-      const dx = b.door.x * TS, dy = b.door.y * TS;
-      ctx.fillStyle = '#6f5033';
-      ctx.fillRect(dx + 4, dy + 2, TS - 8, TS - 5);
-      ctx.fillStyle = '#8a6540';
-      ctx.fillRect(dx + 5.5, dy + 3.5, TS - 11, TS - 8);
-      ctx.fillStyle = '#e0b05a';
-      ctx.fillRect(dx + 15, dy + 12, 2, 2);
-      ctx.fillStyle = 'rgba(20,15,10,.25)';
-      ctx.fillRect(dx + 2, dy + TS - 4, TS - 4, 2);
-
-      // furniture hints — one anchor object per building type
-      if (b.type === 'house') {
-        ctx.fillStyle = '#c9b593';
-        ctx.fillRect(x + 9, y + 13, 16, 11);
-        ctx.fillStyle = '#f2ead9';
-        ctx.fillRect(x + 10, y + 14, 14, 9);
-        ctx.fillStyle = '#a8896a';
-        ctx.fillRect(x + 10, y + 23, 14, 3);
-        ctx.fillStyle = '#8a6d47';
-        ctx.fillRect(x + 12, y + 16, 3, 5);
-      } else if (b.type === 'tavern') {
-        ctx.fillStyle = '#8a5d3b';
-        for (let i = 0; i < 3; i++) ctx.fillRect(x + 9 + i * 20, y + 13, 16, 6);
-        ctx.fillStyle = '#d9b27a';
-        for (let i = 0; i < 3; i++) ctx.fillRect(x + 11 + i * 20, y + 21, 12, 4);
-        ctx.fillStyle = '#efe0c0';
-        for (let i = 0; i < 3; i++) ctx.fillRect(x + 13 + i * 20, y + 17, 2, 2);
-      } else if (b.type === 'clinic') {
-        ctx.fillStyle = '#dfeae5';
-        ctx.fillRect(x + 9, y + 12, 12, 18);
-        ctx.fillStyle = '#7fae9f';
-        ctx.fillRect(x + 13, y + 17, 6, 2);
-        ctx.fillRect(x + 15, y + 15, 2, 6);
-      } else if (b.type === 'studio') {
-        ctx.fillStyle = '#e3cadb';
-        ctx.fillRect(x + 9, y + 12, 15, 13);
-        ctx.fillStyle = '#8a6f86';
-        ctx.fillRect(x + 11, y + 14, 11, 8);
-        ctx.fillStyle = '#cf9d5c';
-        ctx.fillRect(x + 13, y + 16, 2, 4);
-      } else if (b.type === 'hall') {
-        ctx.fillStyle = '#c3cbdc';
-        ctx.fillRect(x + 9, y + 12, 30, 6);
-        ctx.fillStyle = '#8e9bb5';
-        ctx.fillRect(x + 9, y + 20, 30, 2);
-        ctx.fillStyle = '#e6ecf4';
-        ctx.fillRect(x + 20, y + 13, 6, 3);
-      } else if (b.type === 'workshop') {
-        ctx.fillStyle = '#8a7354';
-        ctx.fillRect(x + 8, y + 12, 20, 5);
-        ctx.fillRect(x + 8, y + 20, 9, 7);
-        ctx.fillStyle = '#b9a887';
-        ctx.fillRect(x + 20, y + 22, 8, 2);
-      }
-
-      // name plate
-      ctx.font = '10px "Microsoft YaHei", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const label = b.name;
-      const tw = ctx.measureText(label).width + 12;
-      const px0 = x + w / 2 - tw / 2, py0 = y + h - 13;
-      ctx.fillStyle = 'rgba(38,30,22,.72)';
-      roundRect(ctx, px0, py0, tw, 13, 3); ctx.fill();
-      ctx.strokeStyle = 'rgba(220,196,150,.25)';
-      ctx.lineWidth = 1;
-      roundRect(ctx, px0 + 0.5, py0 + 0.5, tw - 1, 12, 3); ctx.stroke();
-      ctx.fillStyle = '#f0e5cf';
-      ctx.fillText(label, x + w / 2, py0 + 7);
+      const roof = ['a', 'c', 'e'][(b.type ? b.type.length : b.name.length) % 3];
+      art.house(this.ctx, b, x + 2, y + 1, w - 4, h - 3, night, { roof });
     }
   }
 
@@ -576,84 +392,27 @@ export class Renderer {
   // Body, head, hair, and the one prop that makes this person readable at a
   // glance: a straw hat, an apron, a white coat, a brush, a spear.
   drawPerson(n, x, y, highlight) {
-    const ctx = this.ctx;
-    const job = n.job;
-    const skin = SKIN[n.name.charCodeAt(0) % SKIN.length];
-    const hair = HAIR[n.name.charCodeAt(1) % HAIR.length];
-
-    // legs
-    ctx.fillStyle = '#4b4038';
-    ctx.fillRect(x - 3.5, y + 4, 2.5, 4);
-    ctx.fillRect(x + 1, y + 4, 2.5, 4);
-
-    // body — a thin dark outline keeps the silhouette readable on grass
-    ctx.fillStyle = n.color;
-    ctx.beginPath();
-    ctx.ellipse(x, y + 1.5, 6.8, 7.8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(24,30,24,.38)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(x, y + 1.5, 6.8, 7.8, 0, 0, Math.PI * 2); ctx.stroke();
-    if (highlight) {
-      ctx.strokeStyle = 'rgba(255,240,205,.6)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.ellipse(x, y + 1.5, 7.4, 8.3, 0, 0, Math.PI * 2); ctx.stroke();
-    }
-
-    // job colour coding, one stroke each
-    if (job === 'farmer') {
-      ctx.fillStyle = '#d9b96a';
-      ctx.beginPath(); ctx.ellipse(x, y - 7.4, 6.6, 2.6, 0, 0, Math.PI * 2); ctx.fill();
-    } else if (job === 'carpenter') {
-      ctx.fillStyle = '#a9743f';
-      ctx.fillRect(x - 4, y - 1, 8, 6);
-      ctx.fillStyle = '#6d4b2c';
-      ctx.fillRect(x + 4, y - 2, 2, 8);
-    } else if (job === 'doctor') {
-      ctx.fillStyle = '#eef3f1';
-      ctx.fillRect(x - 5, y - 2, 10, 7);
-      ctx.fillStyle = '#c96f5a';
-      ctx.fillRect(x - 0.8, y + 0.5, 1.6, 4);
-      ctx.fillRect(x - 2, y + 1.8, 4, 1.6);
-    } else if (job === 'artist') {
-      ctx.fillStyle = '#8a3f6a';
-      ctx.fillRect(x - 4.5, y - 7.6, 9, 2.4);
-      ctx.fillStyle = '#d8c08a';
-      ctx.fillRect(x + 4.5, y - 4, 1.6, 7);
-    } else if (job === 'tavern') {
-      ctx.fillStyle = '#efe0bf';
-      ctx.fillRect(x - 4, y - 1, 8, 6);
-    } else if (job === 'fisher') {
-      ctx.strokeStyle = '#6f5a3c';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(x + 5, y + 4); ctx.lineTo(x + 8, y - 9); ctx.stroke();
-      ctx.strokeStyle = 'rgba(240,240,230,.5)';
-      ctx.lineWidth = 0.8;
-      ctx.beginPath(); ctx.moveTo(x + 8, y - 9); ctx.lineTo(x + 8, y + 3); ctx.stroke();
-    } else if (job === 'guard') {
-      ctx.fillStyle = '#7b858f';
-      ctx.fillRect(x - 6, y - 1, 3, 5);
-      ctx.fillRect(x + 3, y - 1, 3, 5);
-      ctx.strokeStyle = '#8a7a5c';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(x - 7, y + 5); ctx.lineTo(x - 7, y - 10); ctx.stroke();
-    } else if (job === 'merchant') {
-      ctx.fillStyle = '#a8593f';
-      ctx.beginPath(); ctx.ellipse(x + 6, y + 3, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#e2c274';
-      ctx.fillRect(x + 5.2, y + 1, 1.6, 1.6);
-    }
-
-    // head
-    ctx.fillStyle = skin;
-    ctx.beginPath(); ctx.arc(x, y - 6, 4.2, 0, Math.PI * 2); ctx.fill();
-    // hair
-    ctx.fillStyle = hair;
-    ctx.beginPath(); ctx.arc(x, y - 7.2, 4.3, Math.PI * 1.02, Math.PI * 1.98); ctx.fill();
-    // eyeline
-    ctx.fillStyle = 'rgba(40,30,24,.75)';
-    ctx.fillRect(x - 2.4, y - 5.6, 1.4, 1.4);
-    ctx.fillRect(x + 1, y - 5.6, 1.4, 1.4);
+    const job = n.profile.job;
+    const cloth = n.profile.color || '#c25a44';
+    const skin = art.PAL.skin[(n.profile.id.charCodeAt(0) + n.profile.id.length) % 4];
+    const hair = art.PAL.hair[(n.profile.id.charCodeAt(n.profile.id.length - 1)) % 6];
+    const bob = Math.sin((n.animPhase || 0)) * 2;
+    const facing = n.facing || 1;
+    let hat = null, accent = null;
+    if (job === 'farmer') hat = 'straw';
+    else if (job === 'artist') hat = 'beret';
+    else if (job === 'guard') hat = 'guard';
+    else if (job === 'doctor') { accent = '#d05a4a'; }
+    else if (job === 'carpenter') { accent = art.PAL.woodDark; }
+    else if (job === 'tavern') { accent = '#f3e4c3'; }
+    else if (job === 'merchant') { accent = art.PAL.gold; }
+    else if (job === 'fisher') { accent = '#4f7fb8'; }
+    art.chibi(this.ctx, x - TS / 2, y - TS / 2 + 2, {
+      ts: TS, cloth, skin, hair, hat, accent,
+      bob: Math.abs(bob) > 1 ? 1 : 0,
+      facing,
+      highlight,
+    });
   }
 
   drawSpeech(n, x, y, selected) {
