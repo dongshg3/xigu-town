@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>溪谷镇 · 生活模拟原型</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span>溪谷镇 <em>NPC 生活模拟原型</em></div>
+    <div class="clockbox">
+      <div class="clock" id="clock">第 1 天 06:00</div>
+      <div class="weather" id="weather">☀ 晴</div>
+    </div>
+    <div class="speedbar" id="speedbar">
+      <button class="btn ghost" data-cmd="pause" title="暂停 / 继续 (空格)">⏸</button>
+      <button class="btn speed active" data-speed="1">1×</button>
+      <button class="btn speed" data-speed="2">2×</button>
+      <button class="btn speed" data-speed="4">4×</button>
+      <button class="btn speed" data-speed="8">8×</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage">
+      <canvas id="map" width="1040" height="780"></canvas>
+      <div class="hint" id="hint">点击地面移动 · 点击居民打开档案 · 空格暂停</div>
+      <div class="placement" id="placement" hidden>
+        <span id="placementLabel"></span>
+        <button class="btn tiny" id="cancelPlacement">取消 (Esc)</button>
+      </div>
+    </section>
+
+    <aside class="side">
+      <nav class="tabs" id="tabs">
+        <button data-tab="world" class="active">世界</button>
+        <button data-tab="town">镇务</button>
+        <button data-tab="people">居民</button>
+        <button data-tab="log">日志</button>
+      </nav>
+      <div class="panel" id="panel"></div>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast" hidden></div>
+  <div class="modal" id="modal" hidden><div class="modal-body" id="modalBody"></div></div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

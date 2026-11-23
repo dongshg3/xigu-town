@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+*.log
+# 本地随手截的图，不算交付物
+shots/

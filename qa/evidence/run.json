@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "runId": "main-path",
+  "createdAt": "2026-11-23T14:07:10.858Z",
+  "environment": {
+    "os": "win32 10.0.22000",
+    "node": "v24.13.1",
+    "browser": "Chrome/157.0.8103.80",
+    "url": "http://127.0.0.1:3034/?seed=20261123",
+    "viewport": "1280x800",
+    "seed": 20261123,
+    "timezone": "Asia/Shanghai"
+  },
+  "inputTrace": [
+    {
+      "at": "2026-11-23T14:07:13.633Z",
+      "action": "navigate",
+      "detail": "http://127.0.0.1:3034/?seed=20261123"
+    },
+    {
+      "at": "2026-11-23T14:07:13.828Z",
+      "action": "click",
+      "detail": "speed 8x"
+    },
+    {
+      "at": "2026-11-23T14:07:15.464Z",
+      "action": "click",
+      "detail": "walk to tile 20,11"
+    },
+    {
+      "at": "2026-11-23T14:07:17.083Z",
+      "action": "key",
+      "detail": "Space (pause)"
+    },
+    {
+      "at": "2026-11-23T14:07:18.063Z",
+      "action": "fast-forward",
+      "detail": "480 ticks via sim.step(), sampling goals and acts"
+    },
+    {
+      "at": "2026-11-23T14:07:18.115Z",
+      "action": "sandbox",
+      "detail": "place bench blueprint and wait for the carpenter"
+    },
+    {
+      "at": "2026-11-23T14:07:19.264Z",
+      "action": "reload",
+      "detail": "reload, then restore from localStorage"
+    }
+  ],
+  "observations": {
+    "launch": {
+      "id": "launch-01",
+      "inputs": [
+        "navigate"
+      ],
+      "state": {
+        "title": "溪谷镇 · 生活模拟原型",
+        "hasCanvas": true,
+        "canvasBox": {
+          "w": 822,
+          "h": 617
+        },
+        "npcs": 8,
+        "clock": "第 1 天 06:05",
+        "errors": 0
+      }
+    },
+    "render": {
+      "id": "render-01",
+      "inputs": [
+        "wait",
+        "click speed 8x"
+      ],
+      "state": {
+        "visual": "qa/evidence/render-02-running.png",
+        "boot": "qa/evidence/render-01-boot.png",
+        "bytes": [
+          213243,
+          185502
+        ],
+        "clock": [
+          "第 1 天 06:05",
+          "第 1 天 07:35"
+        ]
+      }
+    },
+    "input": {
+      "id": "input-01",
+      "inputs": [
+        "click ground tile",
+        "key Space",
+        "key Space"
+      ],
+      "state": {
+        "moved": 4,
+        "pausedTick": {
+          "t0": 43,
+          "t1": 43
+        }
+      }
+    },
+    "coreLoop": {
+      "id": "core-01",
+      "inputs": [
+        "sim.step() x480"
+      ],
+      "state": {
+        "t0": 43,
+        "t1": 523,
+        "logs0": 16,
+        "logs1": 120,
+        "goalKinds": [
+          "eat",
+          "relax",
+          "sleep",
+          "social",
+          "study",
+          "work"
+        ],
+        "actKinds": [
+          "buyMeal",
+          "chat",
+          "chop",
+          "eat",
+          "fish",
+          "harvest",
+          "paint",
+          "relax",
+          "serve",
+          "sleep",
+          "study",
+          "trade",
+          "treat",
+          "watch",
+          "water",
+          "work"
+        ],
+        "needsMin": 0,
+        "needsMax": 100,
+        "drama": 5,
+        "npcs": 8
+      }
+    },
+    "outcome": {
+      "id": "outcome-01",
+      "inputs": [
+        "placeBlueprint bench",
+        "sim.step() until built"
+      ],
+      "state": {
+        "ok": true,
+        "placed": {
+          "x": 7,
+          "y": 2
+        },
+        "steps": 159,
+        "before": 3,
+        "after": 4,
+        "beauty": 7,
+        "log": [
+          "你放下了一张「长椅」的图纸，等木匠来建。",
+          "老墨造好了「长椅」。"
+        ],
+        "visual": "qa/evidence/outcome-01-bench.png"
+      }
+    },
+    "restart": {
+      "id": "restart-01",
+      "inputs": [
+        "save",
+        "reload",
+        "restore"
+      ],
+      "state": {
+        "fresh": {
+          "tick": 1,
+          "npcs": 8,
+          "decor": 6,
+          "clock": "第 1 天 06:05"
+        },
+        "saved": {
+          "tick": 686,
+          "npcs": 8,
+          "decor": 7
+        },
+        "restored": {
+          "tick": 686,
+          "npcs": 8,
+          "decor": 7
+        },
+        "visual": "qa/evidence/restart-01-restored.png"
+      }
+    }
+  },
+  "consoleErrors": []
+}

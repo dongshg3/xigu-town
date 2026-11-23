@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 3,
+  "status": "PASS",
+  "verify": {
+    "command": "npm run verify",
+    "exitCode": 0
+  },
+  "completeRun": {
+    "id": "main-path",
+    "cleanContext": true,
+    "terminal": "bench built by the carpenter after the player placed a blueprint",
+    "restart": "reload returns to a fresh world; the saved tick is restored from localStorage",
+    "evidence": "qa/evidence/run.json"
+  },
+  "checks": {
+    "launch": "PASS",
+    "render": "PASS",
+    "input": "PASS",
+    "coreLoop": "PASS",
+    "outcome": "PASS",
+    "restart": "PASS"
+  },
+  "limitations": [
+    {
+      "scope": "audio",
+      "reason": "the prototype has no sound; nothing is verified for audio feedback"
+    },
+    {
+      "scope": "touch / narrow screens",
+      "reason": "verified at 1280x800 desktop viewport only"
+    },
+    {
+      "scope": "long-run balance",
+      "reason": "headless smoke covers 7 in-game days; multi-week pacing is probe data, not a verified outcome"
+    }
+  ]
+}
