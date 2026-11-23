@@ -1,49 +1,49 @@
 {
   "schemaVersion": 1,
   "runId": "main-path",
-  "createdAt": "2026-11-23T14:56:06.246Z",
+  "createdAt": "2026-11-23T15:04:44.624Z",
   "environment": {
     "os": "win32 10.0.22000",
     "node": "v24.13.1",
     "browser": "Chrome/157.0.8103.80",
-    "url": "http://127.0.0.1:8112/?seed=20261123",
+    "url": "http://127.0.0.1:8922/?seed=20261123",
     "viewport": "1280x800",
     "seed": 20261123,
     "timezone": "Asia/Shanghai"
   },
   "inputTrace": [
     {
-      "at": "2026-11-23T14:56:08.741Z",
+      "at": "2026-11-23T15:04:47.259Z",
       "action": "navigate",
-      "detail": "http://127.0.0.1:8112/?seed=20261123"
+      "detail": "http://127.0.0.1:8922/?seed=20261123"
     },
     {
-      "at": "2026-11-23T14:56:08.957Z",
+      "at": "2026-11-23T15:04:47.485Z",
       "action": "click",
       "detail": "speed 8x"
     },
     {
-      "at": "2026-11-23T14:56:10.604Z",
+      "at": "2026-11-23T15:04:49.658Z",
       "action": "click",
       "detail": "walk to tile 20,11"
     },
     {
-      "at": "2026-11-23T14:56:12.223Z",
+      "at": "2026-11-23T15:04:51.275Z",
       "action": "key",
       "detail": "Space (pause)"
     },
     {
-      "at": "2026-11-23T14:56:13.177Z",
+      "at": "2026-11-23T15:04:52.248Z",
       "action": "fast-forward",
       "detail": "480 ticks via sim.step(), sampling goals and acts"
     },
     {
-      "at": "2026-11-23T14:56:13.233Z",
+      "at": "2026-11-23T15:04:52.299Z",
       "action": "sandbox",
       "detail": "place bench blueprint and wait for the carpenter"
     },
     {
-      "at": "2026-11-23T14:56:14.403Z",
+      "at": "2026-11-23T15:04:53.471Z",
       "action": "reload",
       "detail": "reload, then restore from localStorage"
     }
@@ -76,8 +76,8 @@
         "visual": "qa/evidence/render-02-running.png",
         "boot": "qa/evidence/render-01-boot.png",
         "bytes": [
-          285888,
-          253339
+          287493,
+          254822
         ],
         "clock": [
           "第 1 天 06:05",
@@ -95,8 +95,8 @@
       "state": {
         "moved": 4,
         "pausedTick": {
-          "t0": 43,
-          "t1": 43
+          "t0": 45,
+          "t1": 45
         }
       }
     },
@@ -106,8 +106,8 @@
         "sim.step() x480"
       ],
       "state": {
-        "t0": 43,
-        "t1": 523,
+        "t0": 45,
+        "t1": 525,
         "logs0": 16,
         "logs1": 123,
         "goalKinds": [
@@ -119,11 +119,11 @@
           "work"
         ],
         "actKinds": [
-          "buyMeal",
           "chat",
           "chop",
           "eat",
           "fish",
+          "forage",
           "harvest",
           "paint",
           "relax",
@@ -133,7 +133,6 @@
           "trade",
           "treat",
           "watch",
-          "water",
           "work"
         ],
         "needsMin": 0,
@@ -154,7 +153,7 @@
           "x": 7,
           "y": 2
         },
-        "steps": 159,
+        "steps": 157,
         "before": 3,
         "after": 4,
         "beauty": 7,

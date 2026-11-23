@@ -7,6 +7,7 @@ import { TILE as T } from './world.js';
 import { DECOR_DEFS } from './data.js';
 
 import * as art from './art.js';
+import { shakeOffset, decay } from './juice.js';
 
 export const TS = 26;
 
@@ -91,7 +92,16 @@ export class Renderer {
   render(sim, state = {}) {
     const ctx = this.ctx;
     this.time = performance.now() / 1000;
+    const dt = this._last ? Math.min(0.1, this.time - this._last) : 0;
+    this._last = this.time;
+    decay(dt);
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
+
+    // 震动只作用于世界层，UI 与夜色保持稳定
+    const sh = shakeOffset();
+    ctx.save();
+    ctx.translate(sh.x, sh.y);
 
     this.drawTiles(sim);
     this.drawGroundObjects(sim);
@@ -103,6 +113,8 @@ export class Renderer {
     this.drawNpcs(sim, state);
     this.drawPlayer(sim);
     this.drawWeather(sim);
+    ctx.restore();
+
     this.drawNight(sim);
     this.drawOverlay(sim, state);
   }

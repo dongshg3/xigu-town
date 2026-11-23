@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+const r = fs.readFileSync('src/render.js','utf8');
+const i = r.indexOf('  render(sim, state) {');
+console.log(r.slice(i, i + 500));
+console.log('--- tail');
+const j = r.lastIndexOf('  render(sim, state) {');
+console.log(r.slice(j, j + 200));
+const m = fs.readFileSync('src/main.js','utf8');
+console.log('=== main head');
+console.log(m.slice(0, 700));

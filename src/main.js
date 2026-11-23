@@ -5,6 +5,8 @@ import { Renderer } from './render.js';
 import { UI } from './ui.js';
 import { saveConfig, clearConfig, polishLine } from './llm.js';
 import { DECOR_DEFS } from './data.js';
+import { play, unlockAudio, setMuted, isMuted } from './audio.js';
+import { kick } from './juice.js';
 
 const SAVE_KEY = 'xigu-town-save-v1';
 const TS = 26;
@@ -20,6 +22,7 @@ let paused = false;
 let acc = 0;
 let placement = null;
 let showPlans = false;
+let lastBuildMsg = '';
 let shownDialogue = null;
 
 let polishToken = 0;
@@ -83,31 +86,37 @@ const ui = new UI({
     const res = hearUtterance(npc, sim, text);
     sim.lastDialogue = { npcId: npc.id, reply: res.reply, asked: res.text, tick: sim.tick };
     ui.showDialogue(sim, sim.lastDialogue);
+    play('chat');
     shownDialogue = sim.lastDialogue;
     polish(npc);
     ui.render(sim);
   },
   onBuy(good, qty) {
+    play('coin');
     const r = sim.buyGood(good, qty);
     ui.toast(r.ok ? '买下了' : r.msg);
     ui.render(sim);
   },
   onSell(good, qty) {
+    play('coin');
     const r = sim.sellGood(good, qty);
     ui.toast(r.ok ? '卖掉了' : r.msg);
     ui.render(sim);
   },
   onDeliver(id) {
+    play('coin');
     const r = sim.takeOrder(id);
     ui.toast(r.ok ? '交货完成' : r.msg);
     ui.render(sim);
   },
   onGod(id, power) {
+    play('levelup');
     const r = sim.god(id, power);
     ui.toast(r.ok ? r.msg : r.msg);
     ui.render(sim);
   },
   onOrder(id, kind) {
+    play('panel');
     const r = sim.issueOrder(id, kind);
     ui.toast(r.ok ? '吩咐下去了' : r.msg);
     ui.render(sim);
@@ -153,6 +162,7 @@ const ui = new UI({
     ui.render(sim);
   },
   onGift(id) {
+    play('coin');
     const npc = sim.npcById(id);
     if (!npc) return;
     const res = sim.requestGift(npc);
@@ -232,7 +242,10 @@ canvas.addEventListener('mousemove', (ev) => {
 
 canvas.addEventListener('mouseleave', () => { state.hover = { x: -1, y: -1 }; state.hoverNpc = null; });
 
+canvas.addEventListener('pointerdown', () => unlockAudio(), { passive: true });
+
 canvas.addEventListener('click', (ev) => {
+  play('click');
   const { tx, ty } = clientToWorld(ev);
   const x = Math.floor(tx), y = Math.floor(ty);
   if (!sim.world.inBounds(x, y)) return;
@@ -267,6 +280,7 @@ canvas.addEventListener('contextmenu', (ev) => {
 speedbar.addEventListener('click', (ev) => {
   const btn = ev.target.closest('button');
   if (!btn) return;
+  if (btn.dataset.cmd === 'mute') { setMuted(!isMuted()); syncMute(btn); play('panel'); return; }
   if (btn.dataset.cmd === 'pause') { paused = !paused; syncSpeedbar(); return; }
   if (btn.dataset.speed) {
     speed = Number(btn.dataset.speed) || 1;
@@ -274,6 +288,13 @@ speedbar.addEventListener('click', (ev) => {
     syncSpeedbar();
   }
 });
+
+function syncMute(btn) {
+  const b = btn || document.getElementById('muteBtn');
+  if (!b) return;
+  b.textContent = isMuted() ? '静音' : '有声';
+  b.classList.toggle('active', !isMuted());
+}
 
 function syncSpeedbar() {
   for (const b of speedbar.querySelectorAll('[data-speed]')) b.classList.toggle('active', !paused && Number(b.dataset.speed) === speed);
@@ -326,12 +347,19 @@ function frame(now) {
     lastGiftMsg = lastLog.text;
     ui.toast(lastLog.text, 1800);
   }
+  if (lastLog && lastLog.text !== lastBuildMsg) {
+    if (lastLog.text.includes('造好了')) { kick(5); play('build'); }
+    else if (lastLog.text.includes('搬进了新居')) { kick(4); play('levelup'); }
+    else if (lastLog.text.includes('偷')) { kick(2.5); play('alert'); }
+    lastBuildMsg = lastLog.text;
+  }
 
   renderer.render(sim, { ...state, selectedId: state.selectedId });
   ui.update(sim);
 
   if (state.selectedId && !sim.npcById(state.selectedId)) state.selectedId = null;
-  requestAnimationFrame(frame);
+  syncMute();
+requestAnimationFrame(frame);
 }
 
 // ---------- start ----------

@@ -215,3 +215,24 @@ button.mini:hover { border-color: #8b7456; background: #232a33; }
 .devbar { grid-column: 3; height: 5px; background: #222833; border-radius: 3px; overflow: hidden; }
 .devbar i { display: block; height: 100%; background: linear-gradient(90deg, #6f8f5f, #a8c37a); }
 .devrow .dim { grid-column: 1 / -1; color: #8b7456; font-size: 10px; }
+
+/* 音效开关：小一号，别抢速度条的注意力 */
+#muteBtn {
+  min-width: 58px;
+  padding: 4px 8px;
+  font-size: 12px;
+  margin-right: 8px;
+  background: linear-gradient(#fdf6e4, #f0e0c2);
+  color: #6b563c;
+}
+#muteBtn.active {
+  background: linear-gradient(#f7dd9c, #e8c266);
+  color: #4a3826;
+  border-color: #b08f4a;
+}
+
+.speedbar .btn.active {
+  background: linear-gradient(#f7dd9c, #e8c266);
+  color: #4a3826;
+  border-color: #b08f4a;
+}
