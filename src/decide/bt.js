@@ -54,6 +54,9 @@ export function tickBehavior(npc, sim) {
   }
   if (!npc.plan.length) return;
 
+  // 交互点排队中：原地等到 waitUntil，不推进步骤
+  if (npc.waitUntil && sim.tick < npc.waitUntil) return;
+
   const step = npc.plan[npc.stepIndex];
   if (!step) { npc.plan = []; return; }
 

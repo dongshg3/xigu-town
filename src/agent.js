@@ -2,6 +2,7 @@
 import { clamp, clockOf } from './core.js';
 import { getAction, actionLabel } from './actions/registry.js';
 import { tickBehavior } from './decide/bt.js';
+import { pointForAct, claimPoint, releasePoint, releaseAll } from './systems/interactions.js';
 
 import { JOBS, BIAS } from './data.js';
 import { ensureMind, noteHabit } from './learning.js';
@@ -53,6 +54,10 @@ export class NPC {
     this.talking = null;
     this.lastPlanAt = -999;
     this.failCool = 0;
+    // 交互点：排队等待与持有状态（运行时，不进存档）
+    this.waitUntil = 0;
+    this.waitTries = 0;
+    this.claimedPoint = null;
 
     this.inventory = { food: 1, seeds: 0 };
     this.speech = null;
@@ -188,6 +193,32 @@ export class NPC {
         return;
       }
     }
+    // 交互点认领：满了就排队等，等不到就重规划（中断恢复：所有出口都释放）
+    const pt = pointForAct(sim, this, step);
+    if (pt) {
+      const r = claimPoint(pt, this.id);
+      if (r === 'ok' || r === 'hold') {
+        this.claimedPoint = pt.id;
+        this.waitTries = 0;
+      } else if (r === 'queued') {
+        this.waitTries++;
+        if (this.waitTries > 4) {
+          this.waitTries = 0;
+          releasePoint(pt, this.id);
+          sim.log(`${this.name}等了一会儿没排上，只好先算了。`, 'social', [this.id]);
+          this.failPlan(sim, '地方被占着，没排上');
+          return;
+        }
+        this.waitUntil = sim.tick + 6;
+        sim.floatText(this.x, this.y - 0.6, '等', '#c8c46a');
+        return;   // 留在当前步骤，waitUntil 过了 bt 会再叫我
+      } else {   // full：队都排不上
+        this.failPlan(sim, '地方被占着');
+        return;
+      }
+    } else {
+      this.claimedPoint = null;
+    }
     this.act = {
       id: step.id,
       ticks: step.dur ?? 2,
@@ -200,6 +231,12 @@ export class NPC {
   }
 
   finishAct(sim) {
+    // 释放交互点（正常结束路径）
+    if (this.claimedPoint) {
+      const p = sim.ix?.points.get(this.claimedPoint);
+      if (p) releasePoint(p, this.id);
+      this.claimedPoint = null;
+    }
     if (this.plan) this.note('干完：' + (actionLabel(this.act?.id) || this.plan.label || '这件事'));
     const act = this.act;
     this.act = null;
@@ -224,6 +261,10 @@ export class NPC {
   }
 
   failPlan(sim, why) {
+    releaseAll(sim, this.id);   // 中断恢复：任何失败路径都不许泄漏占用
+    this.claimedPoint = null;
+    this.waitUntil = 0;
+    this.waitTries = 0;
     this.plan = [];
     this.stepIndex = 0;
     this.act = null;

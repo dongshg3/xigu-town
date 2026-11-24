@@ -17,6 +17,7 @@ import { ensureDev, tickDevelopment } from './development.js';
 import { tickInfluence } from './influence.js';
 import { EventBus } from './core/eventBus.js';
 import { knownKinds } from './data/present/feedback.js';
+import { ensureInteractions } from './systems/interactions.js';
 
 export class Simulation {
   constructor(seed = 20261123) {
@@ -59,6 +60,7 @@ export class Simulation {
     this.levels = [];
     this.milestones = [];
     this.influence = [];
+    ensureInteractions(this);   // 交互点登记：床/长椅/钓位/施工点/工作点（运行时状态，不进存档）
     tickDevelopment(this);
     this.log(`第 1 天，你来到了溪谷镇。`, 'system', []);
     this.log(`镇上有 ${this.npcs.length} 位居民，各自过着自己的日子。`, 'system', []);
@@ -262,6 +264,7 @@ export class Simulation {
     if (res.ok) {
       this.log(`你放下了一张「${res.bp.name}」的图纸，等木匠来建。`, 'build', []);
       this.effects.push({ x, y, text: '图', color: '#e0b05a', age: 0, ttl: 60 });
+      ensureInteractions(this);   // 新施工点登记
     }
     return res;
   }
@@ -303,6 +306,7 @@ export class Simulation {
   standing() { return playerStanding(this); }
 
   onDecorBuilt(bp) {
+    ensureInteractions(this);   // 施工点消失 / 新建筑点出现
     if (bp.type === 'cottage') {
       this.world.decor = this.world.decor.filter((d) => !(d.x === bp.x && d.y === bp.y));
       onHouseBuilt(this, bp.x, bp.y);
@@ -560,6 +564,7 @@ export class Simulation {
     this.logs = data.logs || [];
     this.pendingTalk = null;
     this.pendingGift = null;
+    ensureInteractions(this);   // 读档后重建交互点（占用为运行时状态，自然重新认领）
     return true;
   }
 }

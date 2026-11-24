@@ -721,6 +721,70 @@ try {
   pass('决策三段式', `${decided.length} 人有 why 记录 · 候选含打分拆解 · 同种子决策一致`);
 } catch (e) { fail('决策三段式', e.message); }
 
+// ---------- 38. 交互点：登记/占用/队列/中断恢复 ----------
+try {
+  const { ensureInteractions, claimPoint, releasePoint, releaseAll, pointForAct, occupancySnapshot, IX_CAP } =
+    await import('../src/systems/interactions.js');
+  const s27 = new Simulation(5150);
+  ensureInteractions(s27);
+  const pts = s27.ix.points;
+  // 登记完整：每户一床、两钓位、田地、学堂、长椅
+  const beds = [...pts.values()].filter((p) => p.kind === 'bed');
+  const homes = s27.world.buildings.filter((b) => b.type === 'house' || b.type === 'cottage');
+  assert.equal(beds.length, homes.length, 'bed points != homes');
+  assert.ok([...pts.values()].some((p) => p.kind === 'farm'), 'farm point missing');
+  assert.ok([...pts.values()].some((p) => p.kind === 'school'), 'school point missing');
+  assert.equal([...pts.values()].filter((p) => p.kind === 'pond').length, 2, 'pond spots wrong');
+  // 容量与队列：钓位 cap 1，第二个排队，第四个 full
+  const pond = pts.get('pond:3,6');
+  assert.equal(claimPoint(pond, 'a'), 'ok');
+  assert.equal(claimPoint(pond, 'a'), 'hold', 're-claim should be hold');
+  assert.equal(claimPoint(pond, 'b'), 'queued');
+  assert.equal(claimPoint(pond, 'c'), 'queued');
+  assert.equal(claimPoint(pond, 'd'), 'queued');
+  assert.equal(claimPoint(pond, 'e'), 'full', 'queue overflow should be full');
+  releasePoint(pond, 'a');
+  assert.equal(pond.occ.length, 0, 'release failed');
+  assert.equal(claimPoint(pond, 'b'), 'ok', 'queued npc should claim after release');
+  // 中断恢复：releaseAll 清空该 NPC 所有占用与排队
+  releaseAll(s27, 'b');
+  releaseAll(s27, 'c');
+  releaseAll(s27, 'd');
+  assert.ok(!pond.occ.length && !pond.queue.length, 'releaseAll left residue');
+  // 睡觉认自己家的床
+  const npc = s27.npcs[0];
+  const homePt = pts.get(`bed:${npc.profile.home}`);
+  assert.ok(homePt, 'npc home bed missing');
+  const found = pointForAct(s27, npc, { id: 'sleep', data: {} });
+  assert.equal(found?.id, homePt.id, 'sleep did not map to own bed');
+  // 集成：两人争一张长椅，第二个被排队；释放后能占上
+  const bench = [...pts.values()].find((p) => p.kind === 'bench');
+  assert.ok(bench, 'no bench in town');
+  const n1 = s27.npcs[0], n2 = s27.npcs[1], n3 = s27.npcs[2];
+  n1.x = bench.x; n1.y = bench.y; n2.x = bench.x; n2.y = bench.y; n3.x = bench.x; n3.y = bench.y;
+  const step = { id: 'relax', dur: 3, data: {}, label: '坐着发呆' };
+  n1.plan = [{ kind: 'act', ...step }]; n1.stepIndex = 0; n1.act = null;
+  n2.plan = [{ kind: 'act', ...step }]; n2.stepIndex = 0; n2.act = null;
+  n3.plan = [{ kind: 'act', ...step }]; n3.stepIndex = 0; n3.act = null;
+  n1.startAct(s27, n1.plan[0]);
+  n2.startAct(s27, n2.plan[0]);
+  n3.startAct(s27, n3.plan[0]);   // 长椅 cap 2，第三个应排队
+  assert.ok(n1.act && n2.act, 'first two should occupy bench');
+  assert.ok(!n3.act && n3.waitUntil > s27.tick, 'third should be waiting, got act=' + !!n3.act);
+  assert.deepEqual(bench.queue, [n3.id], 'queue wrong');
+  assert.equal(bench.occ.length, 2, 'bench occupancy wrong');
+  // 中断恢复：n1 失败重规划 → 释放 → n3 等到点后能占上
+  n1.failPlan(s27, '测试中断');
+  assert.equal(bench.occ.length, 1, 'failPlan did not release');
+  s27.tick = n3.waitUntil;        // 快进到等待结束
+  n3.startAct(s27, n3.plan[0]);
+  assert.ok(n3.act, 'queued npc should occupy after release + wait');
+  // 快照可用
+  const snap = occupancySnapshot(s27);
+  assert.ok(snap.some((r) => r.id === bench.id && r.occ.includes(n3.id)), 'snapshot missing bench');
+  pass('交互点', `床/钓位/田地/学堂登记齐 · 容量队列 full 正确 · 排队等待→释放→占上 · 中断释放`);
+} catch (e) { fail('交互点', e.message); }
+
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} 项通过`);
