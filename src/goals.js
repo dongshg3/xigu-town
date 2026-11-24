@@ -47,6 +47,8 @@ export const GOALS = [
     score(npc) {
       const h = npc.needs.hunger;
       let s = h < 36 ? 26 + (36 - h) * 2.7 : (100 - h) * 0.12;
+      if (h < 24) s += 60;          // 饿过头了：哪怕要睡觉，也先垫一口
+      if (h < 14) s += 200;         // 危机：放下一切先吃饭，不许饿着肚子睡死
       if (npc.goalId === 'eat') s += 6;
       return s;
     },

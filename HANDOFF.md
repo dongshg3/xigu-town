@@ -2,7 +2,7 @@
 
 > 给下一个接手的人（或 AI）。读完这份就能改代码、跑测试、推上线，不需要翻聊天记录。
 >
-> 最后更新：第 12 轮迭代进行中（深化架构迁移第 1 步：EventBus + ajv 校验 + 反馈登记 + IndexedDB 存档）
+> 最后更新：第 13 轮迭代（MVP 阶段三：模拟 LOD + 寻路时间切片 + 空间索引 + 对象池 + 渲染剔除 + F3 性能面板；200 人生存修复）
 > 线上：https://dongshg3.github.io/xigu-town/
 
 ---
@@ -16,7 +16,7 @@
 **当前状态**：
 
 ```
-npm run smoke   → 28/28
+npm run smoke   → 43/43
 npm run verify  → 6/6 PASS（launch / render / input / coreLoop / outcome / restart）
 线上            → 200
 ```
@@ -25,7 +25,7 @@ npm run verify  → 6/6 PASS（launch / render / input / coreLoop / outcome / re
 
 ```bash
 node server.mjs          # 或 npm run dev，默认 http://localhost:5173
-npm run smoke            # 无头跑模拟，28 项断言
+npm run smoke            # 无头跑模拟，43 项断言
 npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图证据
 ```
 
@@ -44,19 +44,23 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/data.js` | 251 | 全部静态数据：18 个天性、8 个职业、12 栋建筑、8 个居民、道具、天气、性别年龄、性格 bias |
 | `src/data/personas.js` | 118 | **组合式居民生成器**：名字池×职业权重×特质互斥组合×背景模板碎片，确定性生成 |
 | `src/world.js` | 369 | 40×30 地图、建筑、作物、树、装饰、A* 寻路、仓库 |
-| `src/agent.js` | 267 | NPC 内核（三段式后）：计划容器、动作生命周期、指令；执行在 decide/bt.js |
+| `src/agent.js` | 309 | NPC 内核（三段式后）：计划容器、动作生命周期、指令；执行在 decide/bt.js；update(sim, dt) 支持 LOD 降频 |
 | `src/actions/registry.js` | 307 | **动作注册表**：20 个动作的展示名与效果结算，apply(npc, sim, act) 分发 |
-| `src/character/needs.js` | 44 | **需求组件**：五项需求、衰减、normalize、sum |
-| `src/character/memory.js` | 52 | **记忆库**：去重强化、衰减遗忘、裁剪、心情贡献 |
+| `src/character/needs.js` | 38 | **需求组件**：五项需求、衰减（dt 缩放）、normalize、sum |
+| `src/character/memory.js` | 43 | **记忆库**：去重强化、衰减遗忘（dt 缩放）、裁剪、心情贡献 |
 | `src/character/rels.js` | 37 | **关系簿（八维）**：好感/信任/熟悉 + 恐惧/尊重/亏欠/嫉妒/亲密/竞争，bumpRel 夹取 |
 | `src/character/mood.js` | 44 | **情绪计算**：需求+特质+底色+街景+记忆 → mood（PAD 预留位） |
 | `src/character/traits.js` | 28 | **特质合成**：mergeTraits（乘性键连乘，其余累加） |
-| `src/goals.js` | 270 | 目标内容数据（7 个目标：打分/想法/分解）；pickPlan 走 decide→htn |
+| `src/goals.js` | 272 | 目标内容数据（7 个目标：打分/想法/分解）；pickPlan 走 decide→htn；吃饭有饥饿危机干预 |
 | `src/decide/decide.js` | 16 | **决策 1/3 效用评分**：base×jitter+habit，全程留痕可解释 |
 | `src/decide/htn.js` | 32 | **决策 2/3 HTN 分解**：前 5 候选逐个 plan()，产出 why 记录 |
-| `src/decide/bt.js` | 78 | **决策 3/3 行为树执行**：顺序计划执行器（动作/移动/重规划/排队等待闸门） |
-| `src/systems/interactions.js` | 122 | **交互点系统**：床/长椅/钓位/施工点/工作点/学堂的占用、队列、中断恢复 |
+| `src/decide/bt.js` | 99 | **决策 3/3 行为树执行**：顺序计划执行器（动作/移动/重规划/排队等待闸门/寻路队列防软锁） |
+| `src/systems/interactions.js` | 142 | **交互点系统**：床/长椅/钓位/施工点/工作点/学堂的占用、队列、中断恢复；>50 人「人人有位」抽象扩容 |
 | `src/systems/rumors.js` | 90 | **传闻系统**：产生（吵架/深聊/被抓/喜事）、聊天传播（cred×0.85、hops+1）、写新维度 |
+| `src/systems/simlod.js` | 70 | **模拟 LOD**：>24 人启用四级降频（1/2/4/8 刻），危机（饿/困/病）永远晋升 tier0 全速 |
+| `src/systems/pathqueue.js` | 39 | **寻路时间切片**：每刻按预算结算（12，随规模到 ⌈n/8⌉），丢弃后 NPC 超时重提交防软锁 |
+| `src/systems/spatial.js` | 51 | **空间哈希**：4 格分桶，半径查询只扫邻近桶；接 maybeGreetPlayer 近邻扫描 |
+| `src/core/pool.js` | 28 | **通用对象池**：take/give + 命中率统计；飘字特效复用 |
 | `src/social.js` | 177 | 关系演化、闲聊、玩家交谈/送礼、秘密吐露 |
 | `src/society.js` | 214 | 健康、看病、上学、恋爱结婚生子、偷窃与拘捕 |
 | `src/economy.js` | 145 | 市集定价、买卖、委托、税与工资、酒馆吃饭、打零工 |
@@ -70,14 +74,15 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/understanding.js` | 156 | 自由输入解析（话题/意图/情绪）与回应 |
 | `src/llm.js` | 79 | 可选模型层：OpenAI 兼容端点，只做改写，失败回落本地 |
 | `src/orders.js` | 123 | 六种指令：上工/休息/聊聊/学堂/市集/巡查 |
-| `src/sim.js` | 565 | 世界总装：tick 循环、日志、玩家、存档、日结、50 人装配（population 选项） |
-| `src/render.js` | 717 | 渲染：相机、地形、建筑、人物、气泡、夜色、天气、悬停卡 |
+| `src/sim.js` | 610 | 世界总装：tick 循环、日志、玩家、存档、日结、50 人装配（population 选项）、LOD/寻路队列/空间索引/飘字池接线 |
+| `src/render.js` | 734 | 渲染：相机、地形、建筑、人物（视锥剔除）、气泡、夜色、天气、悬停卡 |
 | `src/art.js` | 490 | 像素美术语言：调色板、地块、树、作物、Q 版小人、房子 |
 | `src/audio.js` | 77 | WebAudio 合成音效（无音频文件） |
 | `src/juice.js` | 29 | 屏幕震动与缓动 |
 | `src/ui.js` | 423 | 右侧面板：世界/镇务/居民/日志四页，居民详情（含决策动机/八维关系/传闻渲染）、对话弹窗 |
 | `src/panels.js` | 71 | 镇务页 HTML 生成（纯函数） |
-| `src/main.js` | 629 | 装配：主循环、输入、相机、建造、指令、存档、音频触发 |
+| `src/main.js` | 638 | 装配：主循环（模拟/渲染计时）、输入、相机、建造、指令、存档、音频触发、F3 性能面板 |
+| `src/debug/perf.js` | 104 | **性能面板**：fps/模拟/渲染耗时拆分、LOD 分层、寻路队列、池命中率；F3 切换，`window.__perf` |
 | `src/core/validate.js` | 40 | **ajv 封装**：`defineSchema/validate/assertValid`，内容 CI 与运行时共用 |
 | `src/core/eventBus.js` | 92 | **事件总线**：emit/subscribe/flush 两相派发、限深 3 层、replay 环形 5000、因果链 |
 | `src/data/present/feedback.js` | 92 | **反馈登记表**：事件 kind → 通知/标记/动画/音效等通道；lint 强制重要事件 ≥2 通道 |
@@ -85,7 +90,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/vendor/` | — | esbuild 从 node_modules 打出的浏览器可用包（ajv、idb-keyval），`npm run vendor` 复现 |
 | `scripts/vendor.mjs` | — | vendor 打包脚本（esbuild stdin 方式） |
 | `scripts/shots-r12.mjs` | — | 第 12 轮界面证据截图（决策动机/关系八维/传闻） |
-| `scripts/smoke.mjs` | — | 40 项无头断言 |
+| `scripts/smoke.mjs` | — | 43 项无头断言 |
 | `scripts/verify.mjs` | — | CDP 驱动真实浏览器，写 `qa/` |
 | `sprites.html` | 54 | 开发用样张页：四向 × 四帧小人 |
 | `design/` | — | GAME_DESIGN / ART_DIRECTION |
@@ -344,9 +349,9 @@ sim.restore(data) // 必须是同一个实例：new Simulation(seed) 之后 rest
 
 ## 14. 测试与验收
 
-**`npm run smoke`（28 项，无头，约 3 秒）**
+**`npm run smoke`（43 项，无头，约 18 秒）**
 
-覆盖：同种子确定性、7 天长跑数值不变量（需求 0–100、无 NaN）、目标/动作覆盖、蓝图由木匠建成、记忆与关系分化、存档往返、玩家交谈/送礼/秘密、生成式台词去重率（40 次交谈 ≥ 0.6 不同）、在线学习（策略/话题/基线在变）、三日长跑确定性、双人对话不复读、六种指令、健康与学堂、恋爱与家庭、盗窃与拘捕、个人史、五项神迹、六系统等级、互相影响与称号。
+覆盖：同种子确定性、7 天长跑数值不变量（需求 0–100、无 NaN）、目标/动作覆盖、蓝图由木匠建成、记忆与关系分化、存档往返、玩家交谈/送礼/秘密、生成式台词去重率（40 次交谈 ≥ 0.6 不同）、在线学习（策略/话题/基线在变）、三日长跑确定性、双人对话不复读、六种指令、健康与学堂、恋爱与家庭、盗窃与拘捕、个人史、五项神迹、六系统等级、互相影响与称号、EventBus/反馈登记、组件化/Action 注册表/决策三段式、交互点、关系八维与传闻、50 人规模化、模拟 LOD、空间索引、200 人规模化与性能预算。
 
 **`npm run verify`（6 项，真实 Chrome + CDP）**
 
@@ -387,6 +392,26 @@ sim.restore(data) // 必须是同一个实例：new Simulation(seed) 之后 rest
 - `art.js` 的 `GRASS_SEASON` / `TREE_SEASON` 两套四季调色板，`groundTile` / `tree` 末位参数是季节
 - 换季当天写一条日志，全员记一条弱记忆
 
+### 第 13 轮新增：性能 LOD 与 200 人规模化
+
+**四件套（全部 gated：`npcs.length > 24` 才启用，8/50 人基线逐字节不变）**：
+
+- **模拟 LOD**（`simlod.js`）：tier0 ≤14 格每刻 / tier1 ≤28 格每 2 刻 / tier2 每 4 刻 / tier3（远处睡觉）每 8 刻；相位 = id 哈希取模防齐步尖峰；`update(sim, dt)` 全链路 dt 缩放（需求/记忆/动作倒计时/移动），恢复全速无跳变。**危机晋升**：hunger<36 / energy<20 / sick 永远 tier0——LOD 不许杀人。
+- **寻路时间切片**（`pathqueue.js`）：LOD 开启时 goto 走队列，每刻预算 12（随规模 ⌈n/8⌉，200 人=25）；按 tier 排序；>128 丢尾。bt.js 里 `_pq.at` 超时 10 刻重提交——**丢弃不软锁**。
+- **空间哈希**（`spatial.js`）：cell 4 格分桶，`maybeGreetPlayer` 近邻扫描走索引，其余全表扫描点暂不换（一致性优先）。
+- **对象池**（`pool.js`）：飘字特效 take/give 复用，命中率进性能面板。
+
+**渲染**：`renderer._view` 视锥剔除（±2 格余量），drawNpcs/drawEffects/气泡预筛都跳过视口外实体；**F3 性能面板**（`debug/perf.js`）：fps、模拟/渲染耗时拆分、LOD 分层、队列、池命中，`window.__perf` 供 CDP 取数。
+
+**200 人挨饿修复（三日 103→21 的完整链条）**：
+
+1. 队列丢请求 → NPC `_pq` 永远等 done → 软锁饿死（修：超时重提交）
+2. 200 人抢 cap=1 的工作台 → 全天「地方被占着」→ 计划空转 → 队列爆（修：`ensureInteractions` 在 >50 人时按「人人有位」抽象扩容，床早已如此）
+3. 效用漏洞：饥饿 23 时睡觉分(+140) 压过吃饭分(61) → 饿着睡到 3 点（修：eat 危机干预 h<24 +60、h<14 +200）
+4. 粮食补给与城镇规模挂钩：`restock = 14×⌈n/50⌉`，上限 `60×⌈n/50⌉`
+
+实测（smoke 43）：200 人三天挨饿 21、传闻 200 人持有、864 刻 ~6.2s（平均每刻 7ms）。
+
 ---
 
 ## 17. 踩过的坑（照着躲）
@@ -404,6 +429,9 @@ sim.restore(data) // 必须是同一个实例：new Simulation(seed) 之后 rest
 | 点击落在格子边界 | `floor(ty)` 落到上一格，报「这里已经有东西了」 | 用 `(tx+0.5, ty+0.5)` |
 | 用 `Math.random()` | 同种子跑出不同结果，smoke 的确定性断言挂掉 | 一律 `sim.rng` |
 | 日志不折叠 | 酒馆缺货时每 tick 刷一条 | `sim.log()` 已按文本 + 60 刻合并，别绕开它 |
+| 异步队列丢请求不等候 | NPC 对着永远不会 done 的 `_pq` 干等，原地饿死 | 请求带提交时刻，超时重提交（bt.js `_pq.at`） |
+| 容量写死不随规模 | 200 人抢 1 个工作台，全天「地方被占着」计划空转 | 交互点在 >50 人时「人人有位」抽象扩容（interactions.js） |
+| 只看终态不看轨迹 | 挨饿样本像「呆站」，实际是在睡觉/等队列 | 解剖前先按天追踪 goal/act/hunger 轨迹再下结论 |
 
 ---
 

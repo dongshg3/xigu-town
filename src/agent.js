@@ -139,27 +139,27 @@ export class NPC {
     this.needsComp.normalize();
   }
 
-  update(sim) {
-    this.tickUpdate(sim);
+  update(sim, dt = 1) {
+    this.tickUpdate(sim, dt);
     this.normalizeNeeds();
   }
 
-  tickUpdate(sim) {
+  tickUpdate(sim, dt = 1) {
     if (!Array.isArray(this.plan)) this.plan = [];
     this.simTick = sim.tick;
     const sleeping = this.act?.id === 'sleep';
 
-    this.needsComp.decay(this.mods, sleeping);
-    this.memoryComp.decay();
-    if (this.failCool > 0) this.failCool--;
+    this.needsComp.decay(this.mods, sleeping, dt);
+    this.memoryComp.decay(dt);
+    if (this.failCool > 0) this.failCool = Math.max(0, this.failCool - dt);
 
     // 执行段在行为树层（decide/bt.js）：动作倒计时 / 移动 / 重规划
-    tickBehavior(this, sim);
+    tickBehavior(this, sim, dt);
   }
 
-  moveAlongPath(sim) {
+  moveAlongPath(sim, dt = 1) {
     if (!this.path || !this.path.length) { this.path = null; return; }
-    let budget = 0.95 * this.mods.moveSpeed;
+    let budget = 0.95 * this.mods.moveSpeed * dt;
     while (budget > 0 && this.path.length) {
       const node = this.path[0];
       const dx = node.x - this.x;
@@ -265,6 +265,7 @@ export class NPC {
     this.claimedPoint = null;
     this.waitUntil = 0;
     this.waitTries = 0;
+    this._pq = null;            // 丢弃未结算的寻路请求
     this.plan = [];
     this.stepIndex = 0;
     this.act = null;

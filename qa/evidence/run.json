@@ -1,49 +1,49 @@
 {
   "schemaVersion": 1,
   "runId": "main-path",
-  "createdAt": "2026-11-24T04:55:03.553Z",
+  "createdAt": "2026-11-24T05:41:11.399Z",
   "environment": {
     "os": "win32 10.0.22000",
     "node": "v24.21.0",
     "browser": "Chrome/157.0.8103.80",
-    "url": "http://127.0.0.1:7941/?seed=20261123",
+    "url": "http://127.0.0.1:10887/?seed=20261123",
     "viewport": "1280x800",
     "seed": 20261123,
     "timezone": "Asia/Shanghai"
   },
   "inputTrace": [
     {
-      "at": "2026-11-24T04:55:06.099Z",
+      "at": "2026-11-24T05:41:13.960Z",
       "action": "navigate",
-      "detail": "http://127.0.0.1:7941/?seed=20261123"
+      "detail": "http://127.0.0.1:10887/?seed=20261123"
     },
     {
-      "at": "2026-11-24T04:55:06.327Z",
+      "at": "2026-11-24T05:41:14.205Z",
       "action": "click",
       "detail": "speed 8x"
     },
     {
-      "at": "2026-11-24T04:55:08.495Z",
+      "at": "2026-11-24T05:41:16.472Z",
       "action": "click",
       "detail": "walk to tile 20,11"
     },
     {
-      "at": "2026-11-24T04:55:10.109Z",
+      "at": "2026-11-24T05:41:18.085Z",
       "action": "key",
       "detail": "Space (pause)"
     },
     {
-      "at": "2026-11-24T04:55:11.798Z",
+      "at": "2026-11-24T05:41:19.649Z",
       "action": "fast-forward",
       "detail": "480 ticks via sim.step(), sampling goals and acts"
     },
     {
-      "at": "2026-11-24T04:55:12.326Z",
+      "at": "2026-11-24T05:41:20.046Z",
       "action": "sandbox",
       "detail": "place bench blueprint and wait for the carpenter"
     },
     {
-      "at": "2026-11-24T04:55:13.545Z",
+      "at": "2026-11-24T05:41:21.300Z",
       "action": "reload",
       "detail": "reload, then restore from localStorage"
     }
@@ -76,12 +76,12 @@
         "visual": "qa/evidence/render-02-running.png",
         "boot": "qa/evidence/render-01-boot.png",
         "bytes": [
-          304118,
-          280335
+          299559,
+          283208
         ],
         "clock": [
           "第 1 天 06:05",
-          "第 1 天 07:35"
+          "第 1 天 07:40"
         ]
       }
     },
@@ -108,7 +108,7 @@
       "state": {
         "t0": 45,
         "t1": 525,
-        "logs0": 79,
+        "logs0": 64,
         "logs1": 320,
         "goalKinds": [
           "eat",
@@ -121,6 +121,7 @@
         "actKinds": [
           "buyMeal",
           "chat",
+          "chop",
           "eat",
           "fish",
           "forage",
@@ -138,7 +139,7 @@
         ],
         "needsMin": 0,
         "needsMax": 100,
-        "drama": 44,
+        "drama": 40,
         "npcs": 50
       }
     },
@@ -154,13 +155,13 @@
           "x": 7,
           "y": 2
         },
-        "steps": 124,
+        "steps": 113,
         "before": 3,
         "after": 4,
         "beauty": 7,
         "log": [
           "你放下了一张「长椅」的图纸，等木匠来建。",
-          "满仓造好了「长椅」。"
+          "宁阿黎造好了「长椅」。"
         ],
         "visual": "qa/evidence/outcome-01-bench.png"
       }
@@ -180,12 +181,12 @@
           "clock": "第 1 天 06:05"
         },
         "saved": {
-          "tick": 654,
+          "tick": 643,
           "npcs": 50,
           "decor": 7
         },
         "restored": {
-          "tick": 654,
+          "tick": 643,
           "npcs": 50,
           "decor": 7
         },

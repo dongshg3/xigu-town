@@ -25,8 +25,9 @@ export class MemoryStore {
     }
   }
 
-  decay() {
-    for (const m of this.items) m.strength *= 0.9986;
+  decay(dt = 1) {
+    const f = Math.pow(0.9986, dt);   // LOD 降频时按步长等比衰减
+    for (const m of this.items) m.strength *= f;
   }
 
   top(n = 6) {

@@ -10,6 +10,7 @@ import { relTag } from './social.js';
 import { play, unlockAudio, setMuted, isMuted } from './audio.js';
 import { kick } from './juice.js';
 import { saveGame, loadGame } from './persist/store.js';
+import { PerfMonitor } from './debug/perf.js';
 
 const SAVE_KEY = 'xigu-town-save-v1';
 const TS = 26;
@@ -32,6 +33,7 @@ let showPlans = false;
 let lastBuildMsg = '';
 let followId = null;
 let shownDialogue = null;
+const perf = new PerfMonitor(() => sim);   // F3 性能面板（只读观测）
 
 let polishToken = 0;
 
@@ -560,7 +562,9 @@ window.addEventListener('keydown', (ev) => {
   }
   else if (ev.key === '+' || ev.key === '=') renderer.zoomAt(0.18, innerWidth / 2, innerHeight / 2);
   else if (ev.key === '-') renderer.zoomAt(-0.15, innerWidth / 2, innerHeight / 2);
-  else if (ev.key === 'p' || ev.key === 'P') {
+  else if (ev.key === 'F3') {
+    ev.preventDefault(); perf.toggle();
+  } else if (ev.key === 'p' || ev.key === 'P') {
     showPlans = !showPlans; state.showPlans = showPlans;
     ui.toast(showPlans ? '显示所有人的行走目标' : '隐藏行走目标', 1200);
   } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') {
@@ -578,12 +582,14 @@ function frame(now) {
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
 
+  const t0 = performance.now();
   if (!paused) {
     acc += dt * TPS_BASE * speed;
     let guard = 0;
     while (acc >= 1 && guard < 60) { acc -= 1; sim.step(); guard++; }
     if (guard >= 60) acc = 0;
   }
+  const t1 = performance.now();
 
   if (followId) {
     const n = sim.npcById(followId);
@@ -610,6 +616,7 @@ function frame(now) {
   }
 
   renderer.render(sim, { ...state, selectedId: state.selectedId });
+  perf.frame(t1 - t0, performance.now() - t1);   // 性能面板：模拟/渲染耗时拆分
   ui.update(sim);
 
   if (state.selectedId && !sim.npcById(state.selectedId)) state.selectedId = null;
@@ -627,4 +634,5 @@ obStart();
 ui.toast('空格暂停 · 1/2/4/8 变速 · P 显示目标 · Ctrl+S 保存', 3600);
 window.__sim = () => sim;
 window.__ui = ui;
+window.__perf = perf;
 requestAnimationFrame(frame);

@@ -17,14 +17,14 @@ export class NeedsComponent {
     };
   }
 
-  // 每 tick 自然变化；sleeping 时能量回升、饥饿减缓
-  decay(mods, sleeping) {
+  // 每 tick 自然变化；sleeping 时能量回升、饥饿减缓。dt 支持 LOD 降频（按步长缩放）
+  decay(mods, sleeping, dt = 1) {
     const v = this.values;
-    v.hunger = clamp(v.hunger - 0.30 * mods.hungerMul * (sleeping ? 0.45 : 1), 0, 100);
-    v.energy = clamp(v.energy + (sleeping ? 5.4 : -0.30 * mods.energyMul), 0, 100);
-    v.social = clamp(v.social - 0.40 * mods.socialMul, 0, 100);
-    v.fun = clamp(v.fun - 0.29 * mods.funMul, 0, 100);
-    v.purpose = clamp(v.purpose - 0.21, 0, 100);
+    v.hunger = clamp(v.hunger - 0.30 * dt * mods.hungerMul * (sleeping ? 0.45 : 1), 0, 100);
+    v.energy = clamp(v.energy + (sleeping ? 5.4 * dt : -0.30 * dt * mods.energyMul), 0, 100);
+    v.social = clamp(v.social - 0.40 * dt * mods.socialMul, 0, 100);
+    v.fun = clamp(v.fun - 0.29 * dt * mods.funMul, 0, 100);
+    v.purpose = clamp(v.purpose - 0.21 * dt, 0, 100);
   }
 
   normalize() {

@@ -4,6 +4,9 @@ import { Simulation } from '../src/sim.js';
 import { titleOf } from '../src/development.js';
 import { hearUtterance } from '../src/understanding.js';
 import { priceOf } from '../src/economy.js';
+import { RNG } from '../src/core.js';
+import { SpatialHash } from '../src/systems/spatial.js';
+import { LOD_STRIDES, LOD_THRESHOLD } from '../src/systems/simlod.js';
 
 const results = [];
 function pass(label, detail = '') { results.push({ ok: true, label, detail }); console.log(`  ✓ ${label}${detail ? ' — ' + detail : ''}`); }
@@ -869,6 +872,112 @@ try {
   assert.ok(elapsed < 10000, 'perf budget blown: ' + elapsed + 'ms for 864 ticks');
   pass('规模化 50 人', `生成合法不重名 · 三天传闻 ${holders.length} 人持有 · hops ${maxHops} · 挨饿 ${starving} · 决策 ${decided} · 864 刻 ${elapsed}ms`);
 } catch (e) { fail('规模化 50 人', e.message); }
+
+// ---------- 41. 模拟 LOD：分层、降频、危机晋升、确定性 ----------
+try {
+  // 8 人基线：LOD 必须完全关闭（调参红线）
+  const s8 = new Simulation(5150, { population: 8 });
+  for (let i = 0; i < 24; i++) s8.step();
+  assert.equal(s8.lod.enabled, false, 'LOD must stay off at 8 people');
+  assert.equal(LOD_THRESHOLD, 24);
+  assert.deepEqual(LOD_STRIDES, [1, 2, 4, 8]);
+  // 30 人：启用；分层覆盖全员；降频 NPC 的 update 次数确实减少
+  const s30 = new Simulation(5150, { population: 30 });
+  s30.lod.refresh();
+  assert.equal(s30.lod.enabled, true, 'LOD should enable above 24');
+  const counts = s30.lod.counts();
+  assert.equal(counts.reduce((a, b) => a + b, 0), 30, 'tier counts must cover everyone');
+  let dueCount = 0;
+  for (let t = 0; t < 16; t++) for (const n of s30.npcs) if (s30.lod.due(n, t)) dueCount++;
+  assert.ok(dueCount < 30 * 16, 'LOD should skip some updates: ' + dueCount);
+  // 危机晋升：把一个人打到饥饿线，下一次 refresh 后他必须是 tier 0 全速
+  const victim = s30.npcs.find((n) => s30.lod.tierOf(n) > 0) || s30.npcs[0];
+  victim.needs.hunger = 10;
+  s30.lod.assignAt = -999; s30.lod.refresh();
+  assert.equal(s30.lod.tierOf(victim), 0, 'starving npc must be promoted to tier 0');
+  // 跑一天半：需求范围合法；前一天睡过的人第二天都能醒（dt 放大不跳变）
+  const sleptSet = new Set(), wokeSet = new Set();
+  for (let i = 0; i < 432; i++) {
+    s30.step();
+    for (const n of s30.npcs) {
+      if (n.act?.id === 'sleep') { if (i < 288) sleptSet.add(n.id); }
+      else if (sleptSet.has(n.id)) wokeSet.add(n.id);
+      for (const k of ['hunger', 'energy', 'social', 'fun', 'purpose']) {
+        assert.ok(n.needs[k] >= -0.01 && n.needs[k] <= 100.01, `need ${k} out of range`);
+      }
+    }
+  }
+  assert.ok(sleptSet.size > 0, 'nobody slept');
+  assert.deepEqual([...sleptSet].sort(), [...wokeSet].sort(), 'someone never woke up');
+  // 确定性：LOD 开启下同种子两跑一致
+  const sig = (s) => s.npcs.map((n) => [n.id, n.x.toFixed(3), n.y.toFixed(3), Math.round(n.needs.hunger)].join(':')).join('|');
+  const a1 = new Simulation(8899, { population: 30 });
+  const a2 = new Simulation(8899, { population: 30 });
+  for (let i = 0; i < 300; i++) { a1.step(); a2.step(); }
+  assert.equal(sig(a1), sig(a2), 'LOD broke determinism');
+  pass('模拟 LOD 分层', `30 人启用 · 分层 ${counts.join('/')} · 16 刻窗口省 ${30 * 16 - dueCount} 次更新 · 危机晋升 tier0 · 全员睡醒 · 同种子一致`);
+} catch (e) { fail('模拟 LOD 分层', e.message); }
+
+// ---------- 42. 空间索引：半径查询与暴力扫描集合相等 ----------
+try {
+  const sh = new SpatialHash(4);
+  const s42 = new Simulation(3141, { population: 50 });
+  for (let i = 0; i < 60; i++) s42.step();
+  const rng = new RNG(7);
+  let checked = 0;
+  for (let q = 0; q < 20; q++) {
+    sh.rebuild(s42.npcs);
+    const qx = rng.float(0, 40), qy = rng.float(0, 30), r = rng.float(1.5, 8);
+    const got = sh.queryRadius(qx, qy, r).map((n) => n.id).sort();
+    const want = s42.npcs.filter((n) => Math.hypot(n.x - qx, n.y - qy) <= r).map((n) => n.id).sort();
+    assert.deepEqual(got, want, `query ${q} mismatch`);
+    checked += want.length;
+  }
+  // 集成：模拟内部用的索引（maybeGreetPlayer 近邻）与全表扫描同集合
+  s42.spatial.rebuild(s42.npcs);
+  const p = s42.player;
+  const nearGot = s42.spatial.queryRadius(p.x, p.y, 2.3).map((n) => n.id).sort();
+  const nearWant = s42.npcs.filter((n) => Math.hypot(n.x - p.x, n.y - p.y) <= 2.3).map((n) => n.id).sort();
+  assert.deepEqual(nearGot, nearWant, 'greet-radius mismatch');
+  pass('空间索引', `20 个随机半径查询全部与暴力扫描一致（覆盖 ${checked} 人次）· 玩家近邻查询一致`);
+} catch (e) { fail('空间索引', e.message); }
+
+// ---------- 43. 规模化 200 人：生存闭环 + 性能预算 + 传播 ----------
+try {
+  const s200 = new Simulation(20261123, { population: 200 });
+  assert.equal(s200.npcs.length, 200, 'population should be 200');
+  s200.lod.refresh();   // enabled 在 refresh 时才计算（构造时尚未分层）
+  assert.ok(s200.lod.enabled, 'LOD must be on at 200');
+  for (const n of s200.npcs) {
+    assert.equal(n.rels.size, 199, 'rels should cover everyone else: ' + n.id);
+  }
+  const t0 = Date.now();
+  for (let i = 0; i < 288 * 3; i++) s200.step();
+  const elapsed = Date.now() - t0;
+  // 生存：超容量城镇允许一定挣扎，但不许大面积断粮（修复前是 103/200）
+  const starving = s200.npcs.filter((n) => n.needs.hunger <= 5).length;
+  assert.ok(starving <= 40, 'too many starving at 200: ' + starving);
+  const avgHunger = s200.npcs.reduce((s, n) => s + n.needs.hunger, 0) / 200;
+  assert.ok(avgHunger > 20, 'town-wide hunger collapse: ' + avgHunger.toFixed(1));
+  // 社会：传闻在 200 人规模下依然传得动
+  const holders = s200.npcs.filter((n) => n.beliefs.some((b) => b.kind === 'rumor')).length;
+  assert.ok(holders >= 100, 'rumor propagation broken at 200: ' + holders);
+  const decided = s200.npcs.filter((n) => n.lastDecision).length;
+  assert.ok(decided >= 150, 'decision coverage too low at 200: ' + decided);
+  // 性能预算：200 人 × 864 刻 < 12s（本机实测 ~5.5s；CI 宽松两倍）
+  assert.ok(elapsed < 12000, 'perf budget blown at 200: ' + elapsed + 'ms');
+  // 确定性：同种子同镇同结局
+  const b2 = new Simulation(20261123, { population: 200 });
+  for (let i = 0; i < 100; i++) b2.step();
+  const a100 = new Simulation(20261123, { population: 200 });
+  for (let i = 0; i < 100; i++) a100.step();
+  assert.equal(
+    a100.npcs.map((n) => n.x.toFixed(2) + ',' + n.y.toFixed(2)).join('|'),
+    b2.npcs.map((n) => n.x.toFixed(2) + ',' + n.y.toFixed(2)).join('|'),
+    '200-person determinism broken',
+  );
+  pass('规模化 200 人', `三天挨饿 ${starving}（修复前 103）· 饥饿均值 ${avgHunger.toFixed(1)} · 传闻 ${holders} 人 · 决策 ${decided} · 864 刻 ${elapsed}ms`);
+} catch (e) { fail('规模化 200 人', e.message); }
 
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);

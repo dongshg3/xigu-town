@@ -29,6 +29,15 @@ export function ensureInteractions(sim) {
   const pts = sim.ix.points;
   const seen = new Set();
   const w = sim.world;
+  // 规模抽象（性能方案 MVP3）：超过 50 人后，工作/田地/钓位/学堂按「人人有位」
+  // 抽象扩容（床早已如此：容量=登记住户数）。否则 200 人抢 1 个工作台，
+  // 全天「地方被占着」→ 计划空转 → 寻路队列爆 → 集体挨饿。
+  // ≤50 人 everyone=false：一切容量旧值，调参基线与社交排队质感都不变。
+  const scale = Math.max(1, Math.ceil(sim.npcs.length / 50));
+  const everyone = scale >= 2;
+  const workersAt = (name) => sim.npcs.filter((n) => n.profile?.work === name).length;
+  const farmers = () => sim.npcs.filter((n) => n.job === 'farmer').length;
+  const fishers = () => sim.npcs.filter((n) => n.job === 'fisher').length;
 
   const put = (point) => {
     seen.add(point.id);
@@ -46,20 +55,23 @@ export function ensureInteractions(sim) {
   // 工作点：有 spot 的功能建筑（住宅除外）
   for (const b of w.buildings) {
     if (b.type === 'house' || b.type === 'cottage') continue;
-    if (b.name === '学堂') { put(pt(`school:${b.name}`, 'school', b.spot.x, b.spot.y)); continue; }
-    put(pt(`work:${b.name}`, 'work', b.spot.x, b.spot.y));
+    if (b.name === '学堂') { put(pt(`school:${b.name}`, 'school', b.spot.x, b.spot.y, IX_CAP.school * scale)); continue; }
+    const cap = everyone ? Math.max(IX_CAP.work * scale, workersAt(b.name)) : IX_CAP.work;
+    put(pt(`work:${b.name}`, 'work', b.spot.x, b.spot.y, cap));
   }
   // 长椅
   for (const d of w.decor) {
     if (d.type !== 'bench') continue;
-    put(pt(`bench:${d.x},${d.y}`, 'bench', d.x, d.y));
+    put(pt(`bench:${d.x},${d.y}`, 'bench', d.x, d.y, IX_CAP.bench * scale));
   }
   // 池塘钓位
-  for (const p of w.pondSpots) put(pt(`pond:${p.x},${p.y}`, 'pond', p.x, p.y));
+  const pondCap = everyone ? Math.max(IX_CAP.pond, Math.ceil(fishers() / Math.max(1, w.pondSpots.length))) : IX_CAP.pond;
+  for (const p of w.pondSpots) put(pt(`pond:${p.x},${p.y}`, 'pond', p.x, p.y, pondCap));
   // 施工点（图纸在就有）
-  for (const bp of w.blueprints) put(pt(`build:${bp.id}`, 'build', bp.x, bp.y));
+  for (const bp of w.blueprints) put(pt(`build:${bp.id}`, 'build', bp.x, bp.y, IX_CAP.build * scale));
   // 田地块（农夫集中劳作区）
-  put(pt('farm:field', 'farm', 16, 21));
+  const farmCap = everyone ? Math.max(IX_CAP.farm * scale, farmers()) : IX_CAP.farm;
+  put(pt('farm:field', 'farm', 16, 21, farmCap));
 
   // 移除已消失且无人占用的点（施工完成、装饰拆除）
   for (const [id, p] of pts) {

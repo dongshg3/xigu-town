@@ -6,8 +6,7 @@
 import { clockOf } from '../core.js';
 import { orderPlan } from '../orders.js';
 
-export function tickBehavior(npc, sim) {
-  const dt = 1;
+export function tickBehavior(npc, sim, dt = 1) {
   const sleeping = npc.act?.id === 'sleep';
   const n = npc.needs;
   const w = sim.world;
@@ -30,7 +29,7 @@ export function tickBehavior(npc, sim) {
   npc.sleeping = false;
 
   if (npc.path && npc.path.length) {
-    npc.moveAlongPath(sim);
+    npc.moveAlongPath(sim, dt);
     return;
   }
 
@@ -62,6 +61,28 @@ export function tickBehavior(npc, sim) {
 
   if (step.kind === 'goto') {
     if (npc.x === step.x && npc.y === step.y) { npc.stepIndex++; return; }
+    if (sim.lod?.enabled) {
+      // 时间切片寻路（性能方案 §5）：提交请求，结算前原地等待，不堵主线程
+      if (npc._pq) {
+        if (!npc._pq.done) {
+          if (sim.tick - (npc._pq.at ?? 0) <= 10) return;   // 等本刻结算
+          npc._pq = null;   // 超时=请求被队列丢弃：重新提交，绝不干等（防软锁）
+        }
+      }
+      if (npc._pq) {
+        const { path: p, tx, ty } = npc._pq;
+        npc._pq = null;
+        if (tx !== step.x || ty !== step.y) return;   // 旧目标的结果，丢弃，下刻重新提交
+        if (!p) { npc.failPlan(sim, '路走不通'); return; }
+        if (!p.length) { npc.stepIndex++; return; }
+        npc.path = p;
+        npc.moveAlongPath(sim, dt);
+        return;
+      }
+      npc._pq = { done: false, path: null, at: sim.tick };
+      sim.pathq.submit(npc, step.x, step.y, sim.lod.tierOf(npc));
+      return;
+    }
     const p = w.findPath(Math.round(npc.x), Math.round(npc.y), step.x, step.y);
     if (!p || p.length === 0) {
       if (p && p.length === 0) { npc.stepIndex++; return; }
@@ -69,7 +90,7 @@ export function tickBehavior(npc, sim) {
       return;
     }
     npc.path = p;
-    npc.moveAlongPath(sim);
+    npc.moveAlongPath(sim, dt);
   } else if (step.kind === 'act') {
     npc.startAct(sim, step);
   } else {

@@ -138,6 +138,12 @@ export class Renderer {
     // 震动只作用于世界层，UI 与夜色保持稳定
     const sh = shakeOffset();
     const cam = this.cam;
+    // 可见世界像素区间（±2 格余量，盖住震屏偏移）：绘制层按此剔除视口外实体
+    this._view = {
+      x0: cam.x - TS * 2, y0: cam.y - TS * 2,
+      x1: cam.x + this.w / cam.zoom + TS * 2,
+      y1: cam.y + this.h / cam.zoom + TS * 2,
+    };
     ctx.save();
     ctx.translate(sh.x, sh.y);
     ctx.translate(-cam.x * cam.zoom, -cam.y * cam.zoom);
@@ -352,9 +358,12 @@ export class Renderer {
 
   drawEffects(sim) {
     const ctx = this.ctx;
+    const v = this._view;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const e of sim.effects) {
+      const px = e.x * TS + TS / 2, py = e.y * TS;
+      if (v && (px < v.x0 || px > v.x1 || py < v.y0 || py > v.y1)) continue;   // 视锥剔除
       const a = 1 - e.age / e.ttl;
       ctx.globalAlpha = clamp(a, 0, 1);
       ctx.font = '12px "Microsoft YaHei", sans-serif';
@@ -370,16 +379,24 @@ export class Renderer {
   // ---- people ----------------------------------------------------------
   drawNpcs(sim, state) {
     const ctx = this.ctx;
+    // 视锥剔除（性能方案 §3）：视口外 ±2 格的居民整轮跳过，气泡也只看视口内的
+    const v = this._view;
+    const inView = (n) => {
+      if (!v) return true;
+      const px = n.x * TS + TS / 2, py = n.y * TS + TS / 2;
+      return px >= v.x0 && px <= v.x1 && py >= v.y0 && py <= v.y1;
+    };
     // Only a few bubbles at a time, and never from inside a building: a crowd
     // of overlapping speech boxes reads as noise, not as life.
     const speaking = new Set(
       sim.npcs
-        .filter((n) => n.speech && !sim.world.buildingAt(n.x, n.y))
+        .filter((n) => n.speech && inView(n) && !sim.world.buildingAt(n.x, n.y))
         .sort((a, b) => Math.hypot(a.x - sim.player.x, a.y - sim.player.y) - Math.hypot(b.x - sim.player.x, b.y - sim.player.y))
         .slice(0, 3)
         .map((n) => n.id),
     );
     for (const n of sim.npcs) {
+      if (!inView(n)) continue;
       const x = n.x * TS + TS / 2;
       const y = n.y * TS + TS / 2;
       const selected = state.selectedId === n.id;

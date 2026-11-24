@@ -20,6 +20,10 @@ import { knownKinds } from './data/present/feedback.js';
 import { ensureInteractions } from './systems/interactions.js';
 import { spreadRumors } from './systems/rumors.js';
 import { generateTownsfolk } from './data/personas.js';
+import { SimulationLODService } from './systems/simlod.js';
+import { PathRequestQueue } from './systems/pathqueue.js';
+import { SpatialHash } from './systems/spatial.js';
+import { Pool } from './core/pool.js';
 
 export class Simulation {
   constructor(seed = 20261123, opts = {}) {
@@ -44,6 +48,13 @@ export class Simulation {
     this.events.knownKinds = knownKinds();
     this.dramaticFlags = [];
     this.effects = [];
+    // 性能方案三件套（§2/§5/§8）：模拟 LOD + 寻路时间切片 + 空间索引。
+    // ≤24 人时全部静默关闭，8 人调参基线的行为逐字节不变。
+    this.lod = new SimulationLODService(this);
+    this.pathq = new PathRequestQueue(12);   // 每刻寻路预算：实测 200 人早高峰约需 10 条/刻
+    this.spatial = new SpatialHash(4);
+    // 飘字对象池（§7）：短命对象复用，避免每帧 new/GC
+    this.effectPool = new Pool(() => ({}));
     this.revealedSecrets = new Set();
     this.playerRels = new Map();
     this.pendingTalk = null;
@@ -110,9 +121,11 @@ export class Simulation {
     return entry;
   }
 
-  floatText(x, y, text, color = '#e8e4da') {
-    this.effects.push({ x, y, text, color, age: 0, ttl: 55 });
-    if (this.effects.length > 40) this.effects.shift();
+  floatText(x, y, text, color = '#e8e4da', ttl = 55) {
+    const e = this.effectPool.take();
+    e.x = x; e.y = y; e.text = text; e.color = color; e.age = 0; e.ttl = ttl;
+    this.effects.push(e);
+    if (this.effects.length > 40) this.effectPool.give(this.effects.shift());
   }
 
   isTavernOpen() {
@@ -150,7 +163,9 @@ export class Simulation {
   // town should feel like it has its own attention, not only answers.
   maybeGreetPlayer() {
     const p = this.player;
-    for (const n of this.npcs) {
+    // LOD 启用时用空间索引只扫附近的桶；关闭时维持旧的全表扫描（基线不变）
+    const near = this.lod.enabled ? this.spatial.queryRadius(p.x, p.y, 2.3) : this.npcs;
+    for (const n of near) {
       if (n.sleeping || n.act?.id === 'sleep') continue;
       if (this.tick < (n.nextGreetAt ?? 0)) continue;
       const d = Math.hypot(n.x - p.x, n.y - p.y);
@@ -273,7 +288,7 @@ export class Simulation {
     const res = this.world.placeBlueprint(type, x, y, this.world.stock);
     if (res.ok) {
       this.log(`你放下了一张「${res.bp.name}」的图纸，等木匠来建。`, 'build', []);
-      this.effects.push({ x, y, text: '图', color: '#e0b05a', age: 0, ttl: 60 });
+      this.floatText(x, y, '图', '#e0b05a', 60);
       ensureInteractions(this);   // 新施工点登记
     }
     return res;
@@ -334,8 +349,9 @@ export class Simulation {
 
   dayRollover() {
     this.world.dailyUpdate();
-    // 铁牛的商队每早补一次货
-    this.world.stock.food = Math.min(60, (this.world.stock.food || 0) + 14);
+    // 铁牛的商队每早补一次货；规模越大补得越多，粮仓上限也随之抬高
+    const foodScale = Math.max(1, Math.ceil(this.npcs.length / 50));
+    this.world.stock.food = Math.min(60 * foodScale, (this.world.stock.food || 0) + 14 * foodScale);
     this.log('铁牛的驮队从镇口进来，卸下几袋粮食。', 'economy', ['niu']);
     const season = SEASONS[this.clock.season] || SEASONS[0];
     const w = this.rng.weighted(WEATHERS, (x) => season.weather[x.id] ?? 1);
@@ -389,7 +405,15 @@ export class Simulation {
       this.dayRollover();
     }
     this.world.tickCrops(0.085 * (SEASONS[this.clock.season]?.crop ?? 1), this.weather.crop ? 1.4 : 0);
-    for (const n of this.npcs) n.update(this);
+    // 模拟 LOD（性能方案 §2）：≤24 人全员逐刻（基线不变）；
+    // 超过后按距离分层降频，dt 按步长放大，状态恢复时无跳变。
+    this.lod.refresh();
+    for (const n of this.npcs) {
+      if (this.lod.due(n, this.tick)) n.update(this, this.lod.strideOf(n));
+    }
+    // 寻路时间切片（§5）：每刻按预算结算队列里的请求
+    this.pathq.process(this);
+    if (this.lod.enabled) this.spatial.rebuild(this.npcs);
     if (this.tick % 20 === 0) seekCare(this);
     if (this.tick % 5 === 0) tickCrime(this);
     if (this.tick % 10 === 0) jailRelease(this);
@@ -399,7 +423,12 @@ export class Simulation {
       if (n.speech && this.tick > n.speech.until) n.speech = null;
     }
     for (const e of this.effects) { e.age++; e.y -= 0.006; }
-    this.effects = this.effects.filter((e) => e.age < e.ttl);
+    for (let i = this.effects.length - 1; i >= 0; i--) {
+      if (this.effects[i].age >= this.effects[i].ttl) {
+        this.effectPool.give(this.effects[i]);
+        this.effects.splice(i, 1);
+      }
+    }
     this.ambient();
     this.events.flush();
   }
@@ -574,6 +603,7 @@ export class Simulation {
     this.logs = data.logs || [];
     this.pendingTalk = null;
     this.pendingGift = null;
+    this.pathq.clear();          // 读档后清空未结算的寻路请求（NPC 会重新提交）
     ensureInteractions(this);   // 读档后重建交互点（占用为运行时状态，自然重新认领）
     return true;
   }
