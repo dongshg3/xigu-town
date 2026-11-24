@@ -74,7 +74,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/art.js` | 490 | 像素美术语言：调色板、地块、树、作物、Q 版小人、房子 |
 | `src/audio.js` | 77 | WebAudio 合成音效（无音频文件） |
 | `src/juice.js` | 29 | 屏幕震动与缓动 |
-| `src/ui.js` | 394 | 右侧面板：世界/镇务/居民/日志四页，居民详情、对话弹窗 |
+| `src/ui.js` | 423 | 右侧面板：世界/镇务/居民/日志四页，居民详情（含决策动机/八维关系/传闻渲染）、对话弹窗 |
 | `src/panels.js` | 71 | 镇务页 HTML 生成（纯函数） |
 | `src/main.js` | 629 | 装配：主循环、输入、相机、建造、指令、存档、音频触发 |
 | `src/core/validate.js` | 40 | **ajv 封装**：`defineSchema/validate/assertValid`，内容 CI 与运行时共用 |
@@ -83,6 +83,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/persist/store.js` | 55 | **存档持久层**：IndexedDB 优先，localStorage/内存兜底，浏览器与 Node 通吃 |
 | `src/vendor/` | — | esbuild 从 node_modules 打出的浏览器可用包（ajv、idb-keyval），`npm run vendor` 复现 |
 | `scripts/vendor.mjs` | — | vendor 打包脚本（esbuild stdin 方式） |
+| `scripts/shots-r12.mjs` | — | 第 12 轮界面证据截图（决策动机/关系八维/传闻） |
 | `scripts/smoke.mjs` | — | 39 项无头断言 |
 | `scripts/verify.mjs` | — | CDP 驱动真实浏览器，写 `qa/` |
 | `sprites.html` | 54 | 开发用样张页：四向 × 四帧小人 |
