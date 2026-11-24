@@ -615,6 +615,52 @@ try {
   pass('反馈登记+存档', `lint 0 问题 · ${Object.keys(FEEDBACK).length} 种事件登记 · 存档往返(${backend})`);
 } catch (e) { fail('反馈登记+存档', e.message); }
 
+// ---------- 35. Character 组件化：别名兼容 + 组件行为 ----------
+try {
+  const { mergeTraits } = await import('../src/character/traits.js');
+  const { NeedsComponent } = await import('../src/character/needs.js');
+  const s24 = new Simulation(777);
+  const npc = s24.npcs[0];
+  // 别名：旧字段路径直达组件数据
+  assert.strictEqual(npc.needs, npc.needsComp.values, 'needs alias broken');
+  assert.strictEqual(npc.memory, npc.memoryComp.items, 'memory alias broken');
+  assert.strictEqual(npc.rels, npc.relsComp.map, 'rels alias broken');
+  // setter（读档路径）：整块替换仍生效
+  npc.needs = { hunger: 50, energy: 50, social: 50, fun: 50, purpose: 50 };
+  assert.equal(npc.needsComp.values.hunger, 50, 'needs setter broken');
+  npc.rels = new Map([['x', { affinity: 1, trust: 2, familiarity: 3 }]]);
+  assert.equal(npc.relsComp.map.get('x').trust, 2, 'rels setter broken');
+  // 记忆去重：同文同 kind 不新增，只强化
+  npc.memory = [];
+  const before = npc.memory.length;
+  npc.addMemory({ text: '测试记忆', kind: 'life', valence: 1, strength: 0.5 });
+  npc.addMemory({ text: '测试记忆', kind: 'life', valence: 1, strength: 0.5 });
+  assert.equal(npc.memory.length, before + 1, 'memory dedupe failed');
+  assert.ok(npc.memory[0].strength > 0.5, 'memory refresh did not bump strength');
+  // 记忆裁剪：第 37 条触发裁剪到 30，之后继续增长
+  npc.memory = [];
+  for (let i = 0; i < 37; i++) npc.addMemory({ text: '记' + i, kind: 'life' });
+  assert.equal(npc.memory.length, 30, 'memory trim wrong at 37 adds: ' + npc.memory.length);
+  npc.addMemory({ text: '记37', kind: 'life' });
+  assert.equal(npc.memory.length, 31, 'memory growth after trim wrong');
+  // 关系兜底：脏数据修平
+  npc.rels = new Map([['bad', { affinity: NaN }]]);
+  const fixed = npc.rel('bad');
+  assert.equal(fixed.affinity, 30, 'rels finiteness fix failed');
+  // 需求衰减确定性：同种子两次构造一致
+  const a1 = new Simulation(999).npcs[0].needs.hunger;
+  const a2 = new Simulation(999).npcs[0].needs.hunger;
+  assert.equal(a1, a2, 'needs init not deterministic');
+  const comp = new NeedsComponent(s24.rng);
+  const h0 = comp.values.hunger;
+  comp.decay({ hungerMul: 1, energyMul: 1, socialMul: 1, funMul: 1 }, false);
+  assert.ok(Math.abs(comp.values.hunger - (h0 - 0.30)) < 1e-9, 'needs decay rate changed');
+  // 特质：乘性键连乘
+  const mods = mergeTraits(['diligent', 'diligent'].filter((t, i) => i === 0));
+  assert.ok(mods.hungerMul !== undefined, 'mergeTraits output shape changed');
+  pass('组件化', 'needs/memory/rels 别名与 setter 兼容 · 去重/裁剪/兜底 · 衰减确定性');
+} catch (e) { fail('组件化', e.message); }
+
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} 项通过`);

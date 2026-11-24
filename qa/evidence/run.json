@@ -1,49 +1,49 @@
 {
   "schemaVersion": 1,
   "runId": "main-path",
-  "createdAt": "2026-11-24T03:49:05.115Z",
+  "createdAt": "2026-11-24T04:00:18.406Z",
   "environment": {
     "os": "win32 10.0.22000",
     "node": "v24.21.0",
     "browser": "Chrome/157.0.8103.80",
-    "url": "http://127.0.0.1:3075/?seed=20261123",
+    "url": "http://127.0.0.1:3847/?seed=20261123",
     "viewport": "1280x800",
     "seed": 20261123,
     "timezone": "Asia/Shanghai"
   },
   "inputTrace": [
     {
-      "at": "2026-11-24T03:49:08.548Z",
+      "at": "2026-11-24T04:00:21.710Z",
       "action": "navigate",
-      "detail": "http://127.0.0.1:3075/?seed=20261123"
+      "detail": "http://127.0.0.1:3847/?seed=20261123"
     },
     {
-      "at": "2026-11-24T03:49:08.838Z",
+      "at": "2026-11-24T04:00:21.964Z",
       "action": "click",
       "detail": "speed 8x"
     },
     {
-      "at": "2026-11-24T03:49:10.974Z",
+      "at": "2026-11-24T04:00:24.072Z",
       "action": "click",
       "detail": "walk to tile 20,11"
     },
     {
-      "at": "2026-11-24T03:49:12.592Z",
+      "at": "2026-11-24T04:00:25.698Z",
       "action": "key",
       "detail": "Space (pause)"
     },
     {
-      "at": "2026-11-24T03:49:13.570Z",
+      "at": "2026-11-24T04:00:26.670Z",
       "action": "fast-forward",
       "detail": "480 ticks via sim.step(), sampling goals and acts"
     },
     {
-      "at": "2026-11-24T03:49:13.630Z",
+      "at": "2026-11-24T04:00:26.725Z",
       "action": "sandbox",
       "detail": "place bench blueprint and wait for the carpenter"
     },
     {
-      "at": "2026-11-24T03:49:14.864Z",
+      "at": "2026-11-24T04:00:27.923Z",
       "action": "reload",
       "detail": "reload, then restore from localStorage"
     }
@@ -76,8 +76,8 @@
         "visual": "qa/evidence/render-02-running.png",
         "boot": "qa/evidence/render-01-boot.png",
         "bytes": [
-          292566,
-          260141
+          292511,
+          260072
         ],
         "clock": [
           "第 1 天 06:05",
@@ -181,12 +181,12 @@
           "clock": "第 1 天 06:05"
         },
         "saved": {
-          "tick": 710,
+          "tick": 709,
           "npcs": 8,
           "decor": 7
         },
         "restored": {
-          "tick": 710,
+          "tick": 709,
           "npcs": 8,
           "decor": 7
         },

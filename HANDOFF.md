@@ -43,7 +43,12 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/core.js` | 78 | `TICK_MINUTES=5`、`DAY_START=360`、`RNG`、`clockOf`、`clamp/lerp/dist`、`hash2` |
 | `src/data.js` | 251 | 全部静态数据：18 个天性、8 个职业、12 栋建筑、8 个居民、道具、天气、性别年龄、性格 bias |
 | `src/world.js` | 369 | 40×30 地图、建筑、作物、树、装饰、A* 寻路、仓库 |
-| `src/agent.js` | 552 | NPC 内核：需求、心情、目标/计划/步骤、动作结算、记忆、关系、个人史、指令 |
+| `src/agent.js` | 535 | NPC 内核（组件化后）：计划执行、动作结算、指令；数据层委托 character/ 组件 |
+| `src/character/needs.js` | 44 | **需求组件**：五项需求、衰减、normalize、sum |
+| `src/character/memory.js` | 52 | **记忆库**：去重强化、衰减遗忘、裁剪、心情贡献 |
+| `src/character/rels.js` | 18 | **关系簿**：按需建交、读档脏数据兜底 |
+| `src/character/mood.js` | 44 | **情绪计算**：需求+特质+底色+街景+记忆 → mood（PAD 预留位） |
+| `src/character/traits.js` | 28 | **特质合成**：mergeTraits（乘性键连乘，其余累加） |
 | `src/goals.js` | 274 | 目标定义与打分、计划生成（吃/睡/工作/社交/放松/闲逛/上学） |
 | `src/social.js` | 177 | 关系演化、闲聊、玩家交谈/送礼、秘密吐露 |
 | `src/society.js` | 214 | 健康、看病、上学、恋爱结婚生子、偷窃与拘捕 |
@@ -72,7 +77,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/persist/store.js` | 55 | **存档持久层**：IndexedDB 优先，localStorage/内存兜底，浏览器与 Node 通吃 |
 | `src/vendor/` | — | esbuild 从 node_modules 打出的浏览器可用包（ajv、idb-keyval），`npm run vendor` 复现 |
 | `scripts/vendor.mjs` | — | vendor 打包脚本（esbuild stdin 方式） |
-| `scripts/smoke.mjs` | — | 34 项无头断言 |
+| `scripts/smoke.mjs` | — | 35 项无头断言 |
 | `scripts/verify.mjs` | — | CDP 驱动真实浏览器，写 `qa/` |
 | `sprites.html` | 54 | 开发用样张页：四向 × 四帧小人 |
 | `design/` | — | GAME_DESIGN / ART_DIRECTION |

@@ -8,30 +8,16 @@ const ACT_NAMES = {
   trade: '做买卖', watch: '看着街上', look: '看了看四周', harvest: '收割', water: '浇水',
   plant: '播种', chop: '砍树', build: '盖房子', study: '听课', forage: '找吃的',
 };
-import { TRAITS, JOBS, BIAS } from './data.js';
+import { JOBS, BIAS } from './data.js';
 import { ensureMind, noteHabit } from './learning.js';
+import { mergeTraits } from './character/traits.js';
+import { NeedsComponent } from './character/needs.js';
+import { MemoryStore } from './character/memory.js';
+import { RelationBook } from './character/rels.js';
+import { computeMood, moodLabelOf, moodColorOf } from './character/mood.js';
 
-const MULT_KEYS = new Set(['workSpeed', 'moveSpeed', 'buildSpeed', 'hungerMul', 'energyMul', 'socialMul', 'funMul', 'spend']);
-
-const DEFAULT_MODS = {
-  workSpeed: 1, moveSpeed: 1, buildSpeed: 1,
-  hungerMul: 1, energyMul: 1, socialMul: 1, funMul: 1, spend: 1,
-  chatBonus: 0, conflictBias: 0, gossipRate: 0, trustGain: 0,
-  moodBase: 0, moodSwing: 1, diligence: 0, curiosity: 0, resolve: 0,
-};
-
-export function mergeTraits(traitIds) {
-  const mods = { ...DEFAULT_MODS };
-  for (const id of traitIds) {
-    const t = TRAITS[id];
-    if (!t) continue;
-    for (const [k, v] of Object.entries(t.mods || {})) {
-      if (MULT_KEYS.has(k)) mods[k] = (mods[k] ?? 1) * v;
-      else mods[k] = (mods[k] ?? 0) + v;
-    }
-  }
-  return mods;
-}
+// 外部（god.js）从这里拿 mergeTraits：保持旧导入路径可用
+export { mergeTraits };
 
 export class NPC {
   constructor(profile, world, sim) {
@@ -51,13 +37,8 @@ export class NPC {
     this.skills = { ...profile.skills };
     this.coins = profile.coins;
 
-    this.needs = {
-      hunger: sim.rng.float(62, 84),
-      energy: sim.rng.float(66, 86),
-      social: sim.rng.float(45, 66),
-      fun: sim.rng.float(42, 64),
-      purpose: sim.rng.float(50, 70),
-    };
+    // 需求组件：初始随机化的调用顺序必须和旧版一致（确定性红线）
+    this.needsComp = new NeedsComponent(sim.rng);
 
     const home = world.findBuilding(profile.home) || world.homeOf(profile.id);
     const spawn = home ? home.door : { x: 20, y: 15 };
@@ -89,13 +70,22 @@ export class NPC {
     this.children = [];
     this.nextGreetAt = 0;
     this.dir = 'down';
-    this.memory = [];
+    // 记忆与关系组件：数据归组件，NPC 上用 getter/setter 别名保持旧字段访问不变
+    this.memoryComp = new MemoryStore(this);
     this.beliefs = [];
-    this.rels = new Map();
+    this.relsComp = new RelationBook();
     this.recentGain = 0;
 
     this.seedMemories(sim);
   }
+
+  // —— 组件别名：外部代码（sim.js 存读档、social.js 等）照旧读写 needs/memory/rels ——
+  get needs() { return this.needsComp.values; }
+  set needs(v) { this.needsComp.values = v; }
+  get memory() { return this.memoryComp.items; }
+  set memory(v) { this.memoryComp.items = v; }
+  get rels() { return this.relsComp.map; }
+  set rels(m) { this.relsComp.map = m; }
 
   seedMemories(sim) {
     const p = this.profile;
@@ -109,70 +99,27 @@ export class NPC {
   }
 
   rel(id) {
-    if (!this.rels.has(id)) this.rels.set(id, { affinity: 30, trust: 18, familiarity: 4, lastTalk: -999 });
-    const r = this.rels.get(id);
-    if (!Number.isFinite(r.affinity)) r.affinity = 30;
-    if (!Number.isFinite(r.trust)) r.trust = 18;
-    if (!Number.isFinite(r.familiarity)) r.familiarity = 4;
-    return r;
+    return this.relsComp.get(id);
   }
 
   addMemory(mem) {
-    // 同一件事反复发生（睡了一觉、吃了饭）不该占满记忆——
-    // 刷新时间与强度，而不是再记一条。
-    const dup = this.memory.find((m) => m.text === mem.text && m.kind === (mem.kind || 'life'));
-    if (dup) {
-      dup.tick = this.simTick ?? 0;
-      dup.strength = Math.min(1, Math.max(dup.strength, mem.strength ?? 0.7) + 0.05);
-      return;
-    }
-    this.memory.push({ tick: this.simTick ?? 0, strength: 0.7, valence: 0, kind: 'life', about: [], ...mem });
-    if (this.memory.length > 36) {
-      this.memory.sort((a, b) => b.strength - a.strength * 0.9);
-      this.memory = this.memory.slice(0, 30);
-    }
+    this.memoryComp.add(mem);
   }
 
   topMemories(n = 6) {
-    return this.memory.slice().sort((a, b) => b.strength - a.strength).slice(0, n);
+    return this.memoryComp.top(n);
   }
 
   get mood() {
-    const n = this.needs;
-    let v = 40
-      + (n.hunger - 50) * 0.20
-      + (n.energy - 50) * 0.10
-      + (n.social - 50) * 0.16
-      + (n.fun - 50) * 0.16
-      + (n.purpose - 50) * 0.10;
-    v += this.mods.moodBase;
-    // 长期底色：连着过得不好会往下沉，好日子会慢慢回来（learning.js）
-    v += this.mind?.moodBase || 0;
-    // The street you build is part of how the day feels.
-    const beauty = this.sim?.world?.beauty?.() ?? 6;
-    v += clamp((beauty - 6) * 0.9, -8, 8);
-    let mem = 0;
-    for (const m of this.memory) mem += m.valence * m.strength * 0.8;
-    v += clamp(mem, -16, 12);
-    return clamp(v, 0, 100);
+    return computeMood(this);
   }
 
   get moodLabel() {
-    const m = this.mood;
-    if (m >= 78) return '心情很好';
-    if (m >= 62) return '还算愉快';
-    if (m >= 45) return '平静';
-    if (m >= 30) return '有点烦躁';
-    if (m >= 15) return '低落';
-    return '快到极限了';
+    return moodLabelOf(this.mood);
   }
 
   get moodColor() {
-    const m = this.mood;
-    if (m >= 70) return '#79b46a';
-    if (m >= 50) return '#c8c46a';
-    if (m >= 30) return '#d9a05a';
-    return '#d9766a';
+    return moodColorOf(this.mood);
   }
 
   get hour() { return clockOf(this.simTick ?? 0).hour; }
@@ -188,8 +135,7 @@ export class NPC {
   }
 
   normalizeNeeds() {
-    const n = this.needs;
-    for (const k of ['hunger', 'energy', 'social', 'fun', 'purpose']) n[k] = clamp(n[k], 0, 100);
+    this.needsComp.normalize();
   }
 
   update(sim) {
@@ -205,13 +151,8 @@ export class NPC {
     const n = this.needs;
     const w = sim.world;
 
-    n.hunger = clamp(n.hunger - 0.30 * this.mods.hungerMul * (sleeping ? 0.45 : 1), 0, 100);
-    n.energy = clamp(n.energy + (sleeping ? 5.4 : -0.30 * this.mods.energyMul), 0, 100);
-    n.social = clamp(n.social - 0.40 * this.mods.socialMul, 0, 100);
-    n.fun = clamp(n.fun - 0.29 * this.mods.funMul, 0, 100);
-    n.purpose = clamp(n.purpose - 0.21, 0, 100);
-
-    for (const m of this.memory) m.strength *= 0.9986;
+    this.needsComp.decay(this.mods, sleeping);
+    this.memoryComp.decay();
     if (this.failCool > 0) this.failCool--;
 
     if (this.act) {
@@ -334,8 +275,7 @@ export class NPC {
   }
 
   needSum() {
-    const n = this.needs;
-    return n.hunger + n.energy + n.social + n.fun + n.purpose;
+    return this.needsComp.sum();
   }
 
   finishPlan(sim) {
