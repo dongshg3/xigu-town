@@ -47,7 +47,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/actions/registry.js` | 307 | **动作注册表**：20 个动作的展示名与效果结算，apply(npc, sim, act) 分发 |
 | `src/character/needs.js` | 44 | **需求组件**：五项需求、衰减、normalize、sum |
 | `src/character/memory.js` | 52 | **记忆库**：去重强化、衰减遗忘、裁剪、心情贡献 |
-| `src/character/rels.js` | 18 | **关系簿**：按需建交、读档脏数据兜底 |
+| `src/character/rels.js` | 37 | **关系簿（八维）**：好感/信任/熟悉 + 恐惧/尊重/亏欠/嫉妒/亲密/竞争，bumpRel 夹取 |
 | `src/character/mood.js` | 44 | **情绪计算**：需求+特质+底色+街景+记忆 → mood（PAD 预留位） |
 | `src/character/traits.js` | 28 | **特质合成**：mergeTraits（乘性键连乘，其余累加） |
 | `src/goals.js` | 270 | 目标内容数据（7 个目标：打分/想法/分解）；pickPlan 走 decide→htn |
@@ -55,6 +55,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/decide/htn.js` | 32 | **决策 2/3 HTN 分解**：前 5 候选逐个 plan()，产出 why 记录 |
 | `src/decide/bt.js` | 78 | **决策 3/3 行为树执行**：顺序计划执行器（动作/移动/重规划/排队等待闸门） |
 | `src/systems/interactions.js` | 122 | **交互点系统**：床/长椅/钓位/施工点/工作点/学堂的占用、队列、中断恢复 |
+| `src/systems/rumors.js` | 90 | **传闻系统**：产生（吵架/深聊/被抓/喜事）、聊天传播（cred×0.85、hops+1）、写新维度 |
 | `src/social.js` | 177 | 关系演化、闲聊、玩家交谈/送礼、秘密吐露 |
 | `src/society.js` | 214 | 健康、看病、上学、恋爱结婚生子、偷窃与拘捕 |
 | `src/economy.js` | 145 | 市集定价、买卖、委托、税与工资、酒馆吃饭、打零工 |
@@ -82,7 +83,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/persist/store.js` | 55 | **存档持久层**：IndexedDB 优先，localStorage/内存兜底，浏览器与 Node 通吃 |
 | `src/vendor/` | — | esbuild 从 node_modules 打出的浏览器可用包（ajv、idb-keyval），`npm run vendor` 复现 |
 | `scripts/vendor.mjs` | — | vendor 打包脚本（esbuild stdin 方式） |
-| `scripts/smoke.mjs` | — | 38 项无头断言 |
+| `scripts/smoke.mjs` | — | 39 项无头断言 |
 | `scripts/verify.mjs` | — | CDP 驱动真实浏览器，写 `qa/` |
 | `sprites.html` | 54 | 开发用样张页：四向 × 四帧小人 |
 | `design/` | — | GAME_DESIGN / ART_DIRECTION |

@@ -785,6 +785,58 @@ try {
   pass('交互点', `床/钓位/田地/学堂登记齐 · 容量队列 full 正确 · 排队等待→释放→占上 · 中断释放`);
 } catch (e) { fail('交互点', e.message); }
 
+// ---------- 39. 关系八维 + 传闻传播 ----------
+try {
+  const { REL_DIMS, bumpRel } = await import('../src/character/rels.js');
+  const { spawnRumor, spreadRumors } = await import('../src/systems/rumors.js');
+  // 八维默认值与旧三维迁移
+  const s28 = new Simulation(9090);
+  const npc = s28.npcs[0];
+  npc.rels = new Map([['old', { affinity: 55, trust: 40, familiarity: 9, lastTalk: 3 }]]);
+  const r = npc.rel('old');
+  assert.equal(r.affinity, 55, 'old dim clobbered');
+  for (const k of Object.keys(REL_DIMS)) assert.ok(Number.isFinite(r[k]), `dim ${k} not filled`);
+  assert.equal(r.fear, 0, 'new dim default wrong');
+  // bumpRel 夹取
+  const r2 = npc.rel('x');
+  bumpRel(r2, 'fear', 120);
+  assert.equal(r2.fear, 100, 'bumpRel clamp failed');
+  bumpRel(r2, 'fear', -200);
+  assert.equal(r2.fear, 0, 'bumpRel floor failed');
+  // 传闻：产生去重、传播衰减、只写新维度
+  const a = s28.npcs[0], b = s28.npcs[1], c = s28.npcs[2];
+  a.beliefs = []; b.beliefs = [];
+  spawnRumor(a, s28, { topic: 'quarrel', text: '听说A和B吵了。', about: [a.id, c.id], valence: -0.5, cred: 0.8 });
+  const again = spawnRumor(a, s28, { topic: 'quarrel', text: '听说A和B吵了。', about: [a.id, c.id], valence: -0.5, cred: 0.8 });
+  assert.equal(a.beliefs.filter((x) => x.kind === 'rumor').length, 1, 'rumor dedupe failed');
+  assert.ok(again.cred > 0.8, 'rumor re-hear should raise cred');
+  const aff0 = b.rel(c.id).affinity;
+  spreadRumors(a, b, s28);
+  const heard = b.beliefs.find((x) => x.kind === 'rumor');
+  assert.ok(heard, 'rumor did not spread');
+  assert.equal(heard.hops, 1, 'hops should increment');
+  assert.ok(Math.abs(heard.cred - Math.round(again.cred * 0.85 * 100) / 100) < 1e-9, 'cred decay wrong');
+  assert.ok(b.rel(c.id).fear > 0, 'negative rumor should raise fear');
+  assert.equal(b.rel(c.id).affinity, aff0, 'rumor must not touch affinity (行为红线)');
+  // 同一条不会再传第二次
+  const n0 = b.beliefs.length;
+  spreadRumors(a, b, s28);
+  assert.equal(b.beliefs.length, n0, 'same rumor spread twice');
+  // 集成：模拟跑三天，传闻真的在镇上传开，且读档不丢
+  const s29 = new Simulation(7744);
+  for (let i = 0; i < 288 * 3; i++) s29.step();
+  const holders = s29.npcs.filter((n) => n.beliefs.some((x) => x.kind === 'rumor'));
+  assert.ok(holders.length >= 2, 'rumors did not propagate in live sim: ' + holders.length);
+  const maxHops = Math.max(...s29.npcs.flatMap((n) => n.beliefs.filter((x) => x.kind === 'rumor').map((x) => x.hops)), 0);
+  assert.ok(maxHops >= 1, 'no rumor hopped');
+  const json = JSON.parse(JSON.stringify(s29.toJSON()));
+  const fresh = new Simulation(json.seed);
+  assert.ok(fresh.restore(json), 'restore failed');
+  const kept = fresh.npcs.filter((n) => n.beliefs.some((x) => x.kind === 'rumor')).length;
+  assert.ok(kept >= 1, 'rumors lost in save/load');
+  pass('关系八维+传闻', `八维迁移/bump 夹取 · 传播 cred×0.85 hops+1 · 三天 ${holders.length} 人持有传闻 · 存读档保留`);
+} catch (e) { fail('关系八维+传闻', e.message); }
+
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} 项通过`);

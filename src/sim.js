@@ -18,6 +18,7 @@ import { tickInfluence } from './influence.js';
 import { EventBus } from './core/eventBus.js';
 import { knownKinds } from './data/present/feedback.js';
 import { ensureInteractions } from './systems/interactions.js';
+import { spreadRumors } from './systems/rumors.js';
 
 export class Simulation {
   constructor(seed = 20261123) {
@@ -128,6 +129,7 @@ export class Simulation {
     noteTopic(b, lines.b.fact?.topic, res.delta);
     learnFromOthers(b, lines.a.text, res.delta);
     learnFromOthers(a, lines.b.text, res.delta);
+    spreadRumors(a, b, this);   // 传闻借这次交谈沿关系边扩散（确定性，不耗 rng）
     if (res.kind === 'quarrel') {
       this.floatText((a.x + b.x) / 2, (a.y + b.y) / 2 - 0.4, '怒', '#e6a89f');
     } else if (res.kind === 'deep') {

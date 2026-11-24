@@ -4,6 +4,8 @@
 import { clamp } from './core.js';
 import { NAMES_F, NAMES_M } from './data.js';
 import { NPC } from './agent.js';
+import { bumpRel } from './character/rels.js';
+import { spawnRumor } from './systems/rumors.js';
 
 export function ensureSociety(sim) {
   sim.crimeLog = sim.crimeLog || [];
@@ -103,12 +105,18 @@ export function tickRomance(sim) {
       const mutual = Math.min(rel.affinity, back.affinity) / 100;
       if (!sim.rng.chance(0.05 + mutual * 0.08)) continue;
       if (sim.dev) sim.dev.weddings += 1;
-    a.partner = b.id;
+      a.partner = b.id;
       b.partner = a.id;
       a.note(`和${b.name}在一起了`, 'family');
       b.note(`和${a.name}在一起了`, 'family');
       a.addMemory({ text: `和${b.name}把话说明白了。`, valence: 3, strength: 0.9, kind: 'love', about: [b.id] });
       b.addMemory({ text: `和${a.name}把话说明白了。`, valence: 3, strength: 0.9, kind: 'love', about: [a.id] });
+      // 八维：确定关系把亲密拉满；喜事当天就成了镇上的新闻
+      bumpRel(a.rel(b.id), 'intimacy', 60);
+      bumpRel(b.rel(a.id), 'intimacy', 60);
+      const loveNews = `听说${a.name}和${b.name}在一起了。`;
+      spawnRumor(a, sim, { topic: 'together', text: loveNews, about: [a.id, b.id], valence: 0.6, cred: 0.9 });
+      spawnRumor(b, sim, { topic: 'together', text: loveNews, about: [a.id, b.id], valence: 0.6, cred: 0.9 });
       sim.log(`${a.name}和${b.name}在一起了。镇上的人第二天就都知道了。`, 'drama', [a.id, b.id]);
     }
   }
@@ -211,6 +219,10 @@ export function tickCrime(sim) {
       n.order = null;
       n.needs.purpose = clamp(n.needs.purpose - 8, 0, 100);
       n.rel('shi').affinity = clamp(n.rel('shi').affinity - 14, 0, 100);
+      // 八维：被卫兵抓过会长惧意，也不得不承认他尽职；这事也会传出去
+      bumpRel(n.rel('shi'), 'fear', 10);
+      bumpRel(n.rel('shi'), 'respect', 4);
+      spawnRumor(n, sim, { topic: 'arrest', text: `${n.name}偷粮被石头抓住了，罚了款还关了半天。`, about: [n.id], valence: -0.6, cred: 0.9 });
       n.addMemory({ text: '偷东西被抓住了，关了半天。', valence: -3, strength: 0.8, kind: 'crime', about: ['shi'] });
       sim.log(`${n.name}偷粮被石头抓住，罚了 ${fine} 枚硬币，关了半天。`, 'drama', [n.id, 'shi']);
     } else {

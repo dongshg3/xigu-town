@@ -3,6 +3,8 @@ import { clamp, clockOf } from './core.js';
 import { replyFor, giftLine, secretLine } from './dialogue.js';
 import { compose, composeChatter, sleepLine } from './language.js';
 import { rewardTalk, noteTopic } from './learning.js';
+import { bumpRel } from './character/rels.js';
+import { spawnRumor } from './systems/rumors.js';
 
 export function pairCompatibility(a, b) {
   const shared = a.traits.filter((t) => b.traits.includes(t)).length;
@@ -78,6 +80,12 @@ export function chatter(a, b, sim) {
     ]);
     a.addMemory({ text: `和${b.name}吵了两句，心里有点堵。`, valence: -2.2, strength: 0.8, kind: 'quarrel', about: [b.id] });
     b.addMemory({ text: `${a.name}今天说话有点冲。`, valence: -1.8, strength: 0.7, kind: 'quarrel', about: [a.id] });
+    // 八维：吵架长竞争与一点惧意；现场产生传闻，之后会沿关系网扩散
+    bumpRel(relA, 'rivalry', 3); bumpRel(relA, 'fear', 1);
+    bumpRel(relB, 'rivalry', 3); bumpRel(relB, 'fear', 1);
+    const quarrelNews = `听说${a.name}和${b.name}当众顶了起来，话说得很难听。`;
+    spawnRumor(a, sim, { topic: 'quarrel', text: quarrelNews, about: [a.id, b.id], valence: -0.5, cred: 0.85 });
+    spawnRumor(b, sim, { topic: 'quarrel', text: quarrelNews, about: [a.id, b.id], valence: -0.5, cred: 0.85 });
     sim.log(`${a.name}和${b.name}话不投机。`, 'drama', [a.id, b.id]);
     return { kind, text: topicText, delta };
   }
@@ -90,6 +98,12 @@ export function chatter(a, b, sim) {
     ]);
     a.addMemory({ text: `和${b.name}聊得很深，像是被理解了一点。`, valence: 2.2, strength: 0.9, kind: 'deep', about: [b.id] });
     b.addMemory({ text: `和${a.name}聊了很久，心里松了些。`, valence: 2.2, strength: 0.9, kind: 'deep', about: [a.id] });
+    // 八维：深聊长亲密与尊重；走得近本身也是镇上的谈资
+    bumpRel(relA, 'intimacy', 2); bumpRel(relA, 'respect', 1);
+    bumpRel(relB, 'intimacy', 2); bumpRel(relB, 'respect', 1);
+    const closeNews = `听说${a.name}和${b.name}走得很近，常常聊到一处。`;
+    spawnRumor(a, sim, { topic: 'close', text: closeNews, about: [a.id, b.id], valence: 0.4, cred: 0.75 });
+    spawnRumor(b, sim, { topic: 'close', text: closeNews, about: [a.id, b.id], valence: 0.4, cred: 0.75 });
     sim.log(`${a.name}和${b.name}聊了很久。`, 'social', [a.id, b.id]);
   } else {
     a.addMemory({ text: `和${b.name}聊了几句。${topicText}`, valence: 0.9, strength: 0.45, kind: 'chat', about: [b.id] });
