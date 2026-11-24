@@ -70,7 +70,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `scripts/verify.mjs` | — | CDP 驱动真实浏览器，写 `qa/` |
 | `sprites.html` | 54 | 开发用样张页：四向 × 四帧小人 |
 | `design/` | — | GAME_DESIGN / ART_DIRECTION |
-| `docs/` | — | NPC_AI_ARCHITECTURE / ROADMAP / SKILLS_APPLIED |
+| `docs/` | — | NPC_AI_ARCHITECTURE / ROADMAP / SKILLS_APPLIED / **DEEP_SIM_ARCHITECTURE**（第 12 轮：深化架构目标与路线图） |
 | `build/BUILD_BRIEF.md` | 54 | 构建契约（targetFinish / 复现路径 / limitations） |
 | `qa/` | — | verification.json（唯一事实源）+ evidence/run.json + 截图 |
 
