@@ -2,6 +2,8 @@
 import { TRAITS, JOBS, DECOR_DEFS } from './data.js';
 import { clockOf } from './core.js';
 import { relTag } from './social.js';
+import { REL_DIM_NAMES } from './character/rels.js';
+import { GOALS } from './goals.js';
 import { summarizeMind } from './learning.js';
 import { titleOf } from './development.js';
 import { loadConfig, llmReady } from './llm.js';
@@ -221,21 +223,34 @@ export class UI {
       .map(([k, v]) => `<span class="chip blue">${this.skillName(k)} ${v.toFixed(1)}</span>`).join('');
     const rels = [...n.rels.entries()].map(([id, r]) => ({ id, ...r, other: sim.npcById(id) }))
       .filter((r) => r.other).sort((a, b) => b.affinity - a.affinity);
-    const relRows = rels.map((r) => `
+    const relRows = rels.map((r) => {
+      // 旧三维之后，把冒出来的新维度（惧/敬/欠/妒/亲/竞）也带出来
+      const extras = ['fear', 'respect', 'debt', 'envy', 'intimacy', 'rivalry']
+        .filter((k) => (r[k] || 0) >= 1)
+        .map((k) => `${REL_DIM_NAMES[k]} ${Math.round(r[k])}`)
+        .join(' · ');
+      return `
       <div class="relrow">
         <span>${esc(r.other.name)}</span>
         <div class="bar"><i style="width:${pct(r.affinity)}"></i></div>
         <span class="num">${Math.round(r.affinity)}</span>
       </div>
-      <div class="sub" style="margin:-4px 0 4px 64px;font-size:11px;color:#7f8b9b">${relTag(r.affinity)} · 信任 ${Math.round(r.trust)} · 熟识 ${Math.round(r.familiarity)}</div>
-    `).join('');
+      <div class="sub" style="margin:-4px 0 4px 64px;font-size:11px;color:#7f8b9b">${relTag(r.affinity)} · 信任 ${Math.round(r.trust)} · 熟识 ${Math.round(r.familiarity)}${extras ? ' · ' + extras : ''}</div>
+    `;
+    }).join('');
     const mems = n.topMemories(7).map((m) => {
       const c = clockOf(m.tick);
       const cls = m.strength > 0.75 ? 'big' : m.valence > 0.4 ? 'good' : m.valence < -0.4 ? 'bad' : '';
       return `<div class="mem ${cls}">${esc(m.text)}<div class="t">D${c.day} ${c.short} · 强度 ${(m.strength * 100).toFixed(0)}</div></div>`;
     }).join('');
     const beliefs = n.beliefs.slice(-8).reverse().map((b) => {
-      const about = sim.npcById(b.about);
+      // 传闻的 about 是数组，秘密/听来是单 id
+      const aboutIds = Array.isArray(b.about) ? b.about : [b.about];
+      const aboutNames = aboutIds.map((id) => sim.npcById(id)?.name || '某人').join('、');
+      if (b.kind === 'rumor') {
+        return `<div class="mem"><span class="chip purple" style="margin-right:6px">传闻</span>${esc(b.text)}<div class="t">关于${esc(aboutNames)} · 来自 ${esc(b.source)} · 可信度 ${Math.round((b.cred ?? 0) * 100)}%${b.hops ? ` · 传了 ${b.hops} 手` : ''} · D${clockOf(b.tick).day} ${clockOf(b.tick).short}</div></div>`;
+      }
+      const about = sim.npcById(aboutIds[0]);
       const tone = b.kind === 'secret' ? 'gold' : 'purple';
       return `<div class="mem ${b.kind === 'secret' ? 'big' : ''}"><span class="chip ${tone}" style="margin-right:6px">${b.kind === 'secret' ? '秘密' : '听来'}</span>关于${esc(about?.name || '某人')}：${esc(b.text)}<div class="t">来自 ${esc(b.source)} · D${clockOf(b.tick).day} ${clockOf(b.tick).short}</div></div>`;
     }).join('') || '<div class="empty">还没有从别人那里听到什么。</div>';
@@ -264,7 +279,18 @@ export class UI {
     }).join('') || '<div class="empty">还没有什么可记的。</div>';
     const steps = n.planView().map((s, i) => `<li class="${s.now ? 'now' : ''}"><span class="idx">${i + 1}</span><span>${esc(s.text)}</span></li>`).join('') || '<li><span class="idx">·</span><span>暂无计划</span></li>';
     const schedule = (JOBS[n.job]?.windows || []).map(([a, b]) => `<span class="chip">${String(a).padStart(2, '0')}:00–${String(b).padStart(2, '0')}:00</span>`).join('');
-    const working = n.act ? `${n.act.label}（还需约 ${n.act.ticks * 5} 分钟）` : (n.path ? '在路上' : n.goalLabel || '发呆');
+    const waiting = n.waitUntil && n.waitUntil > sim.tick;
+    const working = n.act ? `${n.act.label}（还需约 ${n.act.ticks * 5} 分钟）` : (waiting ? '在排队等位置' : n.path ? '在路上' : n.goalLabel || '发呆');
+    // 决策动机（架构：每个行为可回答「为什么做」）：选了谁、多少分、候选各多少、谁被跳过
+    const why = n.lastDecision;
+    const goalName = (id) => GOALS.find((g) => g.id === id)?.label || id;
+    const whyHTML = n.order
+      ? `<div class="mindrow"><b>决定</b><span>在执行旅人的指令：${esc(n.order.label)}</span></div>`
+      : why ? `
+        <div class="mindrow"><b>决定</b><span>${esc(goalName(why.chosen))} · 得分 ${why.score.toFixed(1)} · D${clockOf(why.tick).day} ${clockOf(why.tick).short}</span></div>
+        <div class="mindrow"><b>候选</b><span>${why.candidates.map((c) => `${esc(goalName(c.goal))} ${c.score}（底 ${c.base}${c.habit ? (c.habit > 0 ? '+' : '') + c.habit + ' 习惯' : ''}）`).join(' · ')}</span></div>
+        ${why.skipped && why.skipped.length ? `<div class="mindrow"><b>跳过</b><span>${why.skipped.map(goalName).join('、')}（当时凑不出可行计划）</span></div>` : ''}`
+      : '<div class="empty">还没做过新的决定。</div>';
 
     return `
       <button class="btn tiny" data-act="back">← 返回居民列表</button>
@@ -286,6 +312,9 @@ export class UI {
         <ul class="steps">${steps}</ul>
       </div>
       <div class="chips" style="margin-top:8px">${schedule}</div>
+
+      <h3>为什么这么做</h3>
+      <div class="mind">${whyHTML}</div>
 
       <h3>状态</h3>
       <div class="needrow"><span>心情</span><div class="bar mood"><i style="width:${pct(n.mood)}"></i></div><span class="num">${Math.round(n.mood)}</span></div>
