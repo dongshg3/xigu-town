@@ -695,6 +695,32 @@ try {
   pass('Action 注册表', `20 个动作登记 · 模拟实际用到 ${usedIds.size} 种全部有注册 · 分发效果等价`);
 } catch (e) { fail('Action 注册表', e.message); }
 
+// ---------- 37. 决策三段式：why 解释记录 + 确定性 ----------
+try {
+  const s26 = new Simulation(1357);
+  for (let i = 0; i < 400; i++) s26.step();
+  const decided = s26.npcs.filter((n) => n.lastDecision);
+  assert.ok(decided.length >= 4, 'too few npcs have decision records: ' + decided.length);
+  const d = decided[0].lastDecision;
+  assert.ok(d.chosen && typeof d.score === 'number', 'decision record incomplete');
+  assert.ok(Array.isArray(d.candidates) && d.candidates.length >= 1, 'candidates missing');
+  for (const c of d.candidates) {
+    assert.ok(c.goal && typeof c.score === 'number' && typeof c.base === 'number' && typeof c.habit === 'number',
+      'candidate breakdown incomplete: ' + JSON.stringify(c));
+  }
+  assert.equal(d.candidates[0].goal, d.chosen, 'chosen should be the top surviving candidate');
+  assert.ok(Array.isArray(d.skipped), 'skipped list missing');
+  // 确定性：同种子同时刻，两人做出同样选择
+  const sA = new Simulation(8642);
+  const sB = new Simulation(8642);
+  for (let i = 0; i < 300; i++) { sA.step(); sB.step(); }
+  const nA = sA.npcs.find((n) => n.lastDecision);
+  const nB = sB.npcs.find((n) => n.id === nA.id);
+  assert.equal(nA.lastDecision.chosen, nB.lastDecision.chosen, 'decision not deterministic');
+  assert.equal(nA.lastDecision.score, nB.lastDecision.score, 'decision score not deterministic');
+  pass('决策三段式', `${decided.length} 人有 why 记录 · 候选含打分拆解 · 同种子决策一致`);
+} catch (e) { fail('决策三段式', e.message); }
+
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} 项通过`);

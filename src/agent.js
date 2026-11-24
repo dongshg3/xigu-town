@@ -1,7 +1,7 @@
 // agent.js — one resident: traits, needs, memory, relationships, plan execution.
 import { clamp, clockOf } from './core.js';
-import { orderPlan } from './orders.js';
 import { getAction, actionLabel } from './actions/registry.js';
+import { tickBehavior } from './decide/bt.js';
 
 import { JOBS, BIAS } from './data.js';
 import { ensureMind, noteHabit } from './learning.js';
@@ -47,6 +47,7 @@ export class NPC {
     this.goalId = null;
     this.goalLabel = '';
     this.thought = '刚醒，还没想好今天要做什么。';
+    this.lastDecision = null;   // 最近一次决策的 why 解释记录（htn 产出）
     this.act = null;
     this.sleeping = false;
     this.talking = null;
@@ -141,75 +142,14 @@ export class NPC {
   tickUpdate(sim) {
     if (!Array.isArray(this.plan)) this.plan = [];
     this.simTick = sim.tick;
-    const dt = 1;
     const sleeping = this.act?.id === 'sleep';
-    const n = this.needs;
-    const w = sim.world;
 
     this.needsComp.decay(this.mods, sleeping);
     this.memoryComp.decay();
     if (this.failCool > 0) this.failCool--;
 
-    if (this.act) {
-      if (sleeping) {
-        this.sleeping = true;
-        if (n.energy >= 99.5 && clockOf(sim.tick).hour >= 6) {
-          this.finishAct(sim);
-        } else {
-          this.act.ticks -= dt;
-          if (this.act.ticks <= 0) this.finishAct(sim);
-        }
-      } else {
-        this.act.ticks -= dt;
-        if (this.act.ticks <= 0) this.finishAct(sim);
-      }
-      return;
-    }
-    this.sleeping = false;
-
-    if (this.path && this.path.length) {
-      this.moveAlongPath(sim);
-      return;
-    }
-
-    if (!this.plan.length || this.stepIndex >= this.plan.length) {
-      if (this.order) {
-        const op = orderPlan(this, sim);
-        if (op) {
-          this.plan = op.steps;
-          this.stepIndex = 0;
-          this.goalId = "order";
-          this.goalLabel = op.label;
-          this.note("按旅人的话行动：" + op.label, "order");
-        } else {
-          this.order = null;
-          this.plan = [];
-          this.choosePlan(sim);
-        }
-      } else {
-        this.choosePlan(sim);
-      }
-    }
-    if (!this.plan.length) return;
-
-    const step = this.plan[this.stepIndex];
-    if (!step) { this.plan = []; return; }
-
-    if (step.kind === 'goto') {
-      if (this.x === step.x && this.y === step.y) { this.stepIndex++; return; }
-      const p = w.findPath(Math.round(this.x), Math.round(this.y), step.x, step.y);
-      if (!p || p.length === 0) {
-        if (p && p.length === 0) { this.stepIndex++; return; }
-        this.failPlan(sim, '路走不通');
-        return;
-      }
-      this.path = p;
-      this.moveAlongPath(sim);
-    } else if (step.kind === 'act') {
-      this.startAct(sim, step);
-    } else {
-      this.stepIndex++;
-    }
+    // 执行段在行为树层（decide/bt.js）：动作倒计时 / 移动 / 重规划
+    tickBehavior(this, sim);
   }
 
   moveAlongPath(sim) {
@@ -307,6 +247,7 @@ export class NPC {
     this._needSum = this.needSum();
     this.goalLabel = chosen.label;
     this.thought = chosen.thought;
+    this.lastDecision = chosen.why || null;   // 可解释性：为什么做（调试面板/动机面板用）
   }
 
   // 效果结算委托给动作注册表（架构 §3）；未登记的动作安全落空

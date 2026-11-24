@@ -43,14 +43,17 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/core.js` | 78 | `TICK_MINUTES=5`、`DAY_START=360`、`RNG`、`clockOf`、`clamp/lerp/dist`、`hash2` |
 | `src/data.js` | 251 | 全部静态数据：18 个天性、8 个职业、12 栋建筑、8 个居民、道具、天气、性别年龄、性格 bias |
 | `src/world.js` | 369 | 40×30 地图、建筑、作物、树、装饰、A* 寻路、仓库 |
-| `src/agent.js` | 326 | NPC 内核（注册表后）：计划执行、指令；数据层在 character/，效果结算在 actions/ |
+| `src/agent.js` | 267 | NPC 内核（三段式后）：计划容器、动作生命周期、指令；执行在 decide/bt.js |
 | `src/actions/registry.js` | 307 | **动作注册表**：20 个动作的展示名与效果结算，apply(npc, sim, act) 分发 |
 | `src/character/needs.js` | 44 | **需求组件**：五项需求、衰减、normalize、sum |
 | `src/character/memory.js` | 52 | **记忆库**：去重强化、衰减遗忘、裁剪、心情贡献 |
 | `src/character/rels.js` | 18 | **关系簿**：按需建交、读档脏数据兜底 |
 | `src/character/mood.js` | 44 | **情绪计算**：需求+特质+底色+街景+记忆 → mood（PAD 预留位） |
 | `src/character/traits.js` | 28 | **特质合成**：mergeTraits（乘性键连乘，其余累加） |
-| `src/goals.js` | 274 | 目标定义与打分、计划生成（吃/睡/工作/社交/放松/闲逛/上学） |
+| `src/goals.js` | 270 | 目标内容数据（7 个目标：打分/想法/分解）；pickPlan 走 decide→htn |
+| `src/decide/decide.js` | 16 | **决策 1/3 效用评分**：base×jitter+habit，全程留痕可解释 |
+| `src/decide/htn.js` | 32 | **决策 2/3 HTN 分解**：前 5 候选逐个 plan()，产出 why 记录 |
+| `src/decide/bt.js` | 75 | **决策 3/3 行为树执行**：顺序计划执行器（动作/移动/重规划） |
 | `src/social.js` | 177 | 关系演化、闲聊、玩家交谈/送礼、秘密吐露 |
 | `src/society.js` | 214 | 健康、看病、上学、恋爱结婚生子、偷窃与拘捕 |
 | `src/economy.js` | 145 | 市集定价、买卖、委托、税与工资、酒馆吃饭、打零工 |
@@ -78,7 +81,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/persist/store.js` | 55 | **存档持久层**：IndexedDB 优先，localStorage/内存兜底，浏览器与 Node 通吃 |
 | `src/vendor/` | — | esbuild 从 node_modules 打出的浏览器可用包（ajv、idb-keyval），`npm run vendor` 复现 |
 | `scripts/vendor.mjs` | — | vendor 打包脚本（esbuild stdin 方式） |
-| `scripts/smoke.mjs` | — | 36 项无头断言 |
+| `scripts/smoke.mjs` | — | 37 项无头断言 |
 | `scripts/verify.mjs` | — | CDP 驱动真实浏览器，写 `qa/` |
 | `sprites.html` | 54 | 开发用样张页：四向 × 四帧小人 |
 | `design/` | — | GAME_DESIGN / ART_DIRECTION |

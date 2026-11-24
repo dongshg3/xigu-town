@@ -1,7 +1,7 @@
 // goals.js — utility scoring + plan construction (a small HTN planner).
 import { clamp } from './core.js';
 import { JOBS } from './data.js';
-import { habitBonus } from './learning.js';
+import { studyPlan } from './society.js';
 
 const nearest = (p, list) => {
   let best = null, bd = Infinity;
@@ -40,8 +40,6 @@ function workLines(npc) {
   };
   return map[npc.job] || '忙了一阵。';
 }
-
-import { studyPlan } from './society.js';
 
 export const GOALS = [
   {
@@ -262,23 +260,11 @@ export const GOALS = [
   },
 ];
 
+import { scoreGoals } from './decide/decide.js';
+import { decomposePlan } from './decide/htn.js';
+
+// 三段式决策（架构 §3）：decide 打分留痕 → htn 分解出计划（带 why 解释）
 export function pickPlan(npc, sim) {
-  const scored = GOALS.map((g) => ({
-    g,
-    score: g.score(npc, sim) * (0.9 + sim.rng.next() * 0.2) + habitBonus(npc, g.id),
-  })).filter((c) => c.score > 1.5);
-  scored.sort((a, b) => b.score - a.score);
-  for (const c of scored.slice(0, 5)) {
-    const plan = c.g.plan(npc, sim);
-    if (plan && plan.length) {
-      return {
-        goal: c.g.id,
-        label: c.g.label,
-        thought: typeof c.g.thought === 'function' ? c.g.thought(npc, sim) : c.g.thought,
-        plan,
-        score: c.score,
-      };
-    }
-  }
-  return null;
+  const scored = scoreGoals(GOALS, npc, sim);
+  return decomposePlan(npc, sim, scored);
 }
