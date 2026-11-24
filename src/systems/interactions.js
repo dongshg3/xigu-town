@@ -32,13 +32,16 @@ export function ensureInteractions(sim) {
 
   const put = (point) => {
     seen.add(point.id);
-    if (!pts.has(point.id)) pts.set(point.id, point);
+    const ex = pts.get(point.id);
+    if (ex) { ex.x = point.x; ex.y = point.y; ex.cap = point.cap; return; }
+    pts.set(point.id, point);
   };
 
-  // 床：每栋住宅/小屋一个点（cap 2，伴侣同床不打架）
+  // 床：每栋住宅/小屋一个点；容量 = max(2, 登记住户数)，一屋人夜里不用排队睡觉
   for (const b of w.buildings) {
     if (b.type !== 'house' && b.type !== 'cottage') continue;
-    put(pt(`bed:${b.name}`, 'bed', b.spot.x, b.spot.y));
+    const residents = sim.npcs.filter((n) => n.profile?.home === b.name).length;
+    put(pt(`bed:${b.name}`, 'bed', b.spot.x, b.spot.y, Math.max(2, residents)));
   }
   // 工作点：有 spot 的功能建筑（住宅除外）
   for (const b of w.buildings) {

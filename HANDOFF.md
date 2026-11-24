@@ -9,7 +9,7 @@
 
 ## 0. 三十秒速览
 
-**是什么**：一个纯前端、零依赖的 2D 俯视生活模拟原型。玩家扮演「旅人」，在一个有 8 位居民的小镇里走动、聊天、送礼、建造、下令、当镇长。核心卖点不是种田，是 **NPC 自己过自己的日子**：有需求、有目标、有记忆、有关系、会学习、会说话（句子是现场生成的）、会犯罪、会恋爱生子、会被神迹影响。
+**是什么**：一个纯前端、零依赖的 2D 俯视生活模拟原型。玩家扮演「旅人」，在一个有 50 位居民（8 位手写 + 42 位组合生成，可用 `new Simulation(seed, { population: 8 })` 回到 8 人调参基线）的小镇里走动、聊天、送礼、建造、下令、当镇长。核心卖点不是种田，是 **NPC 自己过自己的日子**：有需求、有目标、有记忆、有关系、会学习、会说话（句子是现场生成的）、会犯罪、会恋爱生子、会被神迹影响。
 
 **技术形态**：原生 ES module + Canvas 2D + 一个 40 行的 Node 静态服务器。没有打包、没有 npm 依赖、没有后端、没有数据库。存档在 `localStorage`。
 
@@ -42,6 +42,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `server.mjs` | 38 | 静态服务器，`PORT` 默认 5173 |
 | `src/core.js` | 78 | `TICK_MINUTES=5`、`DAY_START=360`、`RNG`、`clockOf`、`clamp/lerp/dist`、`hash2` |
 | `src/data.js` | 251 | 全部静态数据：18 个天性、8 个职业、12 栋建筑、8 个居民、道具、天气、性别年龄、性格 bias |
+| `src/data/personas.js` | 118 | **组合式居民生成器**：名字池×职业权重×特质互斥组合×背景模板碎片，确定性生成 |
 | `src/world.js` | 369 | 40×30 地图、建筑、作物、树、装饰、A* 寻路、仓库 |
 | `src/agent.js` | 267 | NPC 内核（三段式后）：计划容器、动作生命周期、指令；执行在 decide/bt.js |
 | `src/actions/registry.js` | 307 | **动作注册表**：20 个动作的展示名与效果结算，apply(npc, sim, act) 分发 |
@@ -69,7 +70,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/understanding.js` | 156 | 自由输入解析（话题/意图/情绪）与回应 |
 | `src/llm.js` | 79 | 可选模型层：OpenAI 兼容端点，只做改写，失败回落本地 |
 | `src/orders.js` | 123 | 六种指令：上工/休息/聊聊/学堂/市集/巡查 |
-| `src/sim.js` | 556 | 世界总装：tick 循环、日志、玩家、存档、日结 |
+| `src/sim.js` | 565 | 世界总装：tick 循环、日志、玩家、存档、日结、50 人装配（population 选项） |
 | `src/render.js` | 717 | 渲染：相机、地形、建筑、人物、气泡、夜色、天气、悬停卡 |
 | `src/art.js` | 490 | 像素美术语言：调色板、地块、树、作物、Q 版小人、房子 |
 | `src/audio.js` | 77 | WebAudio 合成音效（无音频文件） |
@@ -84,7 +85,7 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/vendor/` | — | esbuild 从 node_modules 打出的浏览器可用包（ajv、idb-keyval），`npm run vendor` 复现 |
 | `scripts/vendor.mjs` | — | vendor 打包脚本（esbuild stdin 方式） |
 | `scripts/shots-r12.mjs` | — | 第 12 轮界面证据截图（决策动机/关系八维/传闻） |
-| `scripts/smoke.mjs` | — | 39 项无头断言 |
+| `scripts/smoke.mjs` | — | 40 项无头断言 |
 | `scripts/verify.mjs` | — | CDP 驱动真实浏览器，写 `qa/` |
 | `sprites.html` | 54 | 开发用样张页：四向 × 四帧小人 |
 | `design/` | — | GAME_DESIGN / ART_DIRECTION |

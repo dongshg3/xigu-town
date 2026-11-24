@@ -19,15 +19,23 @@ import { EventBus } from './core/eventBus.js';
 import { knownKinds } from './data/present/feedback.js';
 import { ensureInteractions } from './systems/interactions.js';
 import { spreadRumors } from './systems/rumors.js';
+import { generateTownsfolk } from './data/personas.js';
 
 export class Simulation {
-  constructor(seed = 20261123) {
+  constructor(seed = 20261123, opts = {}) {
     this.seed = seed;
+    this.population = opts.population ?? 50;   // 常态规模（架构决策 D-1）；测试可传 8 回到调参基线
     this.rng = new RNG(seed);
     this.world = new World(seed);
     this.tick = 0;
     this.lastDay = 1;
-    this.npcs = PROFILES.map((p) => new NPC({ ...p, sex: SEX[p.id], age: AGE[p.id] }, this.world, this));
+    // 8 位手写居民 + 组合生成补到目标规模（生成在主 rng 流上，同种子同镇子）
+    const profiles = [...PROFILES];
+    if (this.population > profiles.length) {
+      const names = new Set(profiles.map((p) => p.name));
+      profiles.push(...generateTownsfolk(this.rng, this.population - profiles.length, this.world, names));
+    }
+    this.npcs = profiles.map((p) => new NPC({ ...p, sex: SEX[p.id] ?? p.sex, age: AGE[p.id] ?? p.age }, this.world, this));
     this.npcMap = new Map(this.npcs.map((n) => [n.id, n]));
     this.logs = [];
     // 事件总线（架构 §5）：本步只接机制——log() 会同步发 'log.line' 事件，

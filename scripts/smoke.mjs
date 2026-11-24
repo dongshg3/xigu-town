@@ -14,17 +14,17 @@ console.log('溪谷镇 · 无头模拟自检\n');
 // ---------- 1. determinism ----------
 try {
   const sig = (s) => s.npcs.map((n) => [n.id, n.x.toFixed(4), n.y.toFixed(4), Math.round(n.needs.hunger * 100)].join(':')).join('|');
-  const a = new Simulation(4242);
-  const b = new Simulation(4242);
+  const a = new Simulation(4242, { population: 8 });
+  const b = new Simulation(4242, { population: 8 });
   for (let i = 0; i < 200; i++) { a.step(); b.step(); }
   assert.equal(a.tick, b.tick, 'tick mismatch');
   assert.equal(sig(a), sig(b), 'same seed diverged');
-  assert.notEqual(sig(a), sig(new Simulation(999)));
+  assert.notEqual(sig(a), sig(new Simulation(999, { population: 8 })));
   pass('同种子确定性', '200 刻后状态一致，换种子则不同');
 } catch (e) { fail('同种子确定性', e.message); }
 
 // ---------- 2. long run + invariants ----------
-const sim = new Simulation(20261123);
+const sim = new Simulation(20261123, { population: 8 });
 const initialState = {
   wood: sim.world.stock.wood, decor: sim.world.decor.length,
 };
@@ -117,7 +117,7 @@ try {
 try {
   const raw = JSON.stringify(sim.toJSON());
   const data = JSON.parse(raw);
-  const restored = new Simulation(data.seed);
+  const restored = new Simulation(data.seed, { population: 8 });
   assert.equal(restored.restore(data), true, 'restore rejected');
   assert.equal(restored.tick, sim.tick);
   assert.equal(restored.logs.length, Math.min(160, sim.logs.length));
@@ -134,7 +134,7 @@ try {
 
 // ---------- 7. player interaction ----------
 try {
-  const s2 = new Simulation(777);
+  const s2 = new Simulation(777, { population: 8 });
   for (let i = 0; i < 60; i++) s2.step();
   const npc = s2.npcs[0];
   s2.player.x = npc.x; s2.player.y = npc.y;
@@ -152,7 +152,7 @@ try {
 
 // ---------- 8. generative dialogue (no fixed pool) ----------
 try {
-  const s3 = new Simulation(4242);
+  const s3 = new Simulation(4242, { population: 8 });
   for (let i = 0; i < 120; i++) s3.step();
   const npc = s3.npcs.find((n) => n.id === 'man');
   s3.player.x = npc.x; s3.player.y = npc.y;
@@ -182,7 +182,7 @@ try {
 
 // ---------- 9. online learning ----------
 try {
-  const s4 = new Simulation(9091);
+  const s4 = new Simulation(9091, { population: 8 });
   for (let i = 0; i < 90; i++) s4.step();
   const npc = s4.npcs.find((n) => n.id === 'li');
   const before = JSON.stringify(npc.mind.policy);
@@ -204,14 +204,14 @@ try {
 
 // ---------- 10. adaptive long run + save carries the mind ----------
 try {
-  const s5 = new Simulation(20261123);
-  const s5b = new Simulation(20261123);
+  const s5 = new Simulation(20261123, { population: 8 });
+  const s5b = new Simulation(20261123, { population: 8 });
   for (let i = 0; i < 288 * 3; i++) { s5.step(); s5b.step(); }
   assert.equal(s5.npcs.map((n) => n.mind.policy.warm.toFixed(4)).join(), s5b.npcs.map((n) => n.mind.policy.warm.toFixed(4)).join(), 'learning is not deterministic');
   const drifted = s5.npcs.filter((n) => Math.abs(n.mind.moodBase) > 0.3).length;
   const learned = s5.npcs.filter((n) => Object.keys(n.mind.habits).length > 0).length;
   const data = JSON.parse(JSON.stringify(s5.toJSON()));
-  const back = new Simulation(data.seed);
+  const back = new Simulation(data.seed, { population: 8 });
   back.restore(data);
   const li = s5.npcs.find((n) => n.id === 'li');
   const li2 = back.npcById('li');
@@ -221,7 +221,7 @@ try {
 
 // ---------- 11. two-person talk is not an echo ----------
 try {
-  const s6 = new Simulation(31337);
+  const s6 = new Simulation(31337, { population: 8 });
   for (let i = 0; i < 200; i++) s6.step();
   const a = s6.npcs.find((n) => n.id === 'ye');
   const b = s6.npcs.find((n) => n.id === 'niu');
@@ -234,7 +234,7 @@ try {
 
 // ---------- 12. 自由输入被听懂，并且被记住 ----------
 try {
-  const s7 = new Simulation(5150);
+  const s7 = new Simulation(5150, { population: 8 });
   const lan = s7.npcs.find((n) => n.id === 'lan');
   s7.player.x = lan.x + 1; s7.player.y = lan.y;
   const before = lan.memory.length;
@@ -251,7 +251,7 @@ try {
 
 // ---------- 13. 市集：价格随库存走，买卖都记账 ----------
 try {
-  const s8 = new Simulation(777);
+  const s8 = new Simulation(777, { population: 8 });
   const cheap = priceOf(s8, 'wood');
   s8.world.stock.wood = 2;
   const dear = priceOf(s8, 'wood');
@@ -278,7 +278,7 @@ try {
 
 // ---------- 14. 政治：议会、选举、提案 ----------
 try {
-  const s9 = new Simulation(2024);
+  const s9 = new Simulation(2024, { population: 8 });
   assert.equal(s9.town.council.length, 3, 'council size');
   assert.ok(s9.npcById(s9.town.mayor), 'mayor missing');
   const first = s9.town.mayor;
@@ -296,7 +296,7 @@ try {
 
 // ---------- 15. 版图：买地、盖房、移民、存档 ----------
 try {
-  const s10 = new Simulation(9091);
+  const s10 = new Simulation(9091, { population: 8 });
   const plot = s10.world.plots[0];
   const denied = s10.claimLand(plot.id);
   assert.equal(denied.ok, false, 'land claimed without policy');
@@ -314,7 +314,7 @@ try {
   const settler = s10.npcs[8];
   assert.ok(s10.world.findBuilding(settler.profile.home), 'settler has no home');
   const save = s10.toJSON();
-  const back = new Simulation(9091);
+  const back = new Simulation(9091, { population: 8 });
   back.restore(save);
   assert.equal(back.npcs.length, 9, 'settler lost in save');
   assert.ok(back.world.findBuilding(settler.profile.home), 'house lost in save');
@@ -323,7 +323,7 @@ try {
 
 // ---------- 16. 打零工：镇上的钱变成你的钱 ----------
 try {
-  const s11 = new Simulation(880);
+  const s11 = new Simulation(880, { population: 8 });
   while (s11.clock.hour < 9) s11.step();
   const town0 = s11.town.coins;
   const coins0 = s11.player.coins;
@@ -342,7 +342,7 @@ try {
 
 // ---------- 17. 参选：声望门槛、投票、当选 ----------
 try {
-  const s12 = new Simulation(6161);
+  const s12 = new Simulation(6161, { population: 8 });
   const early = s12.runForMayor();
   assert.equal(early.ok, false, 'candidacy allowed without standing');
   for (const n of s12.npcs) s12.playerRel(n.id).affinity = 80;
@@ -360,7 +360,7 @@ try {
 
 // ---------- 21. 指令：只有走近才吩咐得动 ----------
 try {
-  const s13 = new Simulation(5150);
+  const s13 = new Simulation(5150, { population: 8 });
   for (let i = 0; i < 60; i++) s13.step();
   const far = s13.issueOrder("niu", "work");
   assert.equal(far.ok, false, "distance guard missing");
@@ -378,7 +378,7 @@ try {
 
 // ---------- 22. 健康与学堂 ----------
 try {
-  const s14 = new Simulation(8080);
+  const s14 = new Simulation(8080, { population: 8 });
   for (let i = 0; i < 6 * 288; i++) s14.step();
   const edu = s14.npcs.reduce((a, n) => a + n.education, 0) / s14.npcs.length;
   assert.ok(edu > 28, "nobody studied: avg education " + edu.toFixed(1));
@@ -390,7 +390,7 @@ try {
 
 // ---------- 23. 恋爱与家庭 ----------
 try {
-  const s15 = new Simulation(4242);
+  const s15 = new Simulation(4242, { population: 8 });
   for (let i = 0; i < 14 * 288; i++) s15.step();
   const coupled = s15.npcs.filter((n) => n.partner);
   assert.ok(coupled.length >= 2, "no couple formed");
@@ -405,7 +405,7 @@ try {
 
 // ---------- 24. 治安与拘捕 ----------
 try {
-  const s16 = new Simulation(4242);
+  const s16 = new Simulation(4242, { population: 8 });
   for (let i = 0; i < 20 * 288; i++) s16.step();
   assert.ok(s16.crimeLog.length >= 3, "no crime at all");
   const kinds = new Set(s16.crimeLog.map((c) => c.item.split(":")[0]));
@@ -416,7 +416,7 @@ try {
 
 // ---------- 25. 个人史 ----------
 try {
-  const s17 = new Simulation(20261123);
+  const s17 = new Simulation(20261123, { population: 8 });
   for (let i = 0; i < 2 * 288; i++) s17.step();
   const withHist = s17.npcs.filter((n) => n.history.length >= 3).length;
   assert.equal(withHist, s17.npcs.length, "someone has no personal history");
@@ -427,7 +427,7 @@ try {
 
 // ---------- 26. 神迹 ----------
 try {
-  const s18 = new Simulation(20261123);
+  const s18 = new Simulation(20261123, { population: 8 });
   for (let i = 0; i < 3 * 288; i++) s18.step();
   assert.ok(s18.faith.points >= 8, "faith too low: " + s18.faith.points);
   const n = s18.npcs.find((x) => x.id === "ye");
@@ -449,7 +449,7 @@ try {
 
 // ---------- 27. 系统等级 ----------
 try {
-  const s19 = new Simulation(4242);
+  const s19 = new Simulation(4242, { population: 8 });
   for (let i = 0; i < 8 * 288; i++) s19.step();
   const lv = s19.devList();
   assert.equal(lv.length, 6, "expected six systems");
@@ -461,7 +461,7 @@ try {
 
 // ---------- 28. 影响与称号 ----------
 try {
-  const s20 = new Simulation(20261123);
+  const s20 = new Simulation(20261123, { population: 8 });
   for (let i = 0; i < 6 * 288; i++) s20.step();
   const inf = s20.influence || [];
   assert.ok(inf.length >= 1, "no influence events in 6 days");
@@ -474,7 +474,7 @@ try {
 
 // ---------- 29. 落图纸前置检查（canPlace 给具体理由） ----------
 try {
-  const s21 = new Simulation(9090);
+  const s21 = new Simulation(9090, { population: 8 });
   const w = s21.world;
   assert.equal(w.canPlace('bench', 3, 3).ok, false, 'pond accepted a bench');
   assert.ok(w.canPlace('bench', 3, 3).reason.length > 0, 'no reason for water');
@@ -507,7 +507,7 @@ try {
   assert.equal(clockOf(21 * 288).seasonLabel, '冬');
   assert.equal(clockOf(28 * 288).seasonLabel, '春', 'season cycle should wrap at 28 days');
   const grow = (day, ticks) => {
-    const s = new Simulation(555);
+    const s = new Simulation(555, { population: 8 });
     s.tick = (day - 1) * 288;
     s.lastDay = day;
     const t = s.world.farmTiles.map((f) => s.world.tile(f.x, f.y)).find((x) => x.terrain === 'soil');
@@ -523,7 +523,7 @@ try {
 
 // ---------- 31. 指令选对象（去聊聊 → 找指定的人） ----------
 try {
-  const s22 = new Simulation(3131);
+  const s22 = new Simulation(3131, { population: 8 });
   for (let i = 0; i < 30; i++) s22.step();
   const a = s22.npcs[0];
   const b = s22.npcs[1];
@@ -571,7 +571,7 @@ try {
 
 // ---------- 33. EventBus：log→事件、订阅派发、因果链 ----------
 try {
-  const s23 = new Simulation(4242);
+  const s23 = new Simulation(4242, { population: 8 });
   let heard = 0;
   const seen = [];
   s23.events.subscribe((ev) => ev.kind === 'log.line', (ev) => { heard++; seen.push(ev.data.text); });
@@ -619,7 +619,7 @@ try {
 try {
   const { mergeTraits } = await import('../src/character/traits.js');
   const { NeedsComponent } = await import('../src/character/needs.js');
-  const s24 = new Simulation(777);
+  const s24 = new Simulation(777, { population: 8 });
   const npc = s24.npcs[0];
   // 别名：旧字段路径直达组件数据
   assert.strictEqual(npc.needs, npc.needsComp.values, 'needs alias broken');
@@ -648,8 +648,8 @@ try {
   const fixed = npc.rel('bad');
   assert.equal(fixed.affinity, 30, 'rels finiteness fix failed');
   // 需求衰减确定性：同种子两次构造一致
-  const a1 = new Simulation(999).npcs[0].needs.hunger;
-  const a2 = new Simulation(999).npcs[0].needs.hunger;
+  const a1 = new Simulation(999, { population: 8 }).npcs[0].needs.hunger;
+  const a2 = new Simulation(999, { population: 8 }).npcs[0].needs.hunger;
   assert.equal(a1, a2, 'needs init not deterministic');
   const comp = new NeedsComponent(s24.rng);
   const h0 = comp.values.hunger;
@@ -670,7 +670,7 @@ try {
   assert.equal(actionLabel('nope'), undefined, 'unknown label should be undefined');
   assert.equal(getAction('nope'), null, 'unknown action should be null');
   // 跑一段模拟：所有计划里出现的 act id 都必须有注册项（丰富度靠数据，不许野 id）
-  const s25 = new Simulation(2468);
+  const s25 = new Simulation(2468, { population: 8 });
   const usedIds = new Set();
   for (let i = 0; i < 288 * 2; i++) {
     s25.step();
@@ -697,7 +697,7 @@ try {
 
 // ---------- 37. 决策三段式：why 解释记录 + 确定性 ----------
 try {
-  const s26 = new Simulation(1357);
+  const s26 = new Simulation(1357, { population: 8 });
   for (let i = 0; i < 400; i++) s26.step();
   const decided = s26.npcs.filter((n) => n.lastDecision);
   assert.ok(decided.length >= 4, 'too few npcs have decision records: ' + decided.length);
@@ -711,8 +711,8 @@ try {
   assert.equal(d.candidates[0].goal, d.chosen, 'chosen should be the top surviving candidate');
   assert.ok(Array.isArray(d.skipped), 'skipped list missing');
   // 确定性：同种子同时刻，两人做出同样选择
-  const sA = new Simulation(8642);
-  const sB = new Simulation(8642);
+  const sA = new Simulation(8642, { population: 8 });
+  const sB = new Simulation(8642, { population: 8 });
   for (let i = 0; i < 300; i++) { sA.step(); sB.step(); }
   const nA = sA.npcs.find((n) => n.lastDecision);
   const nB = sB.npcs.find((n) => n.id === nA.id);
@@ -725,7 +725,7 @@ try {
 try {
   const { ensureInteractions, claimPoint, releasePoint, releaseAll, pointForAct, occupancySnapshot, IX_CAP } =
     await import('../src/systems/interactions.js');
-  const s27 = new Simulation(5150);
+  const s27 = new Simulation(5150, { population: 8 });
   ensureInteractions(s27);
   const pts = s27.ix.points;
   // 登记完整：每户一床、两钓位、田地、学堂、长椅
@@ -790,7 +790,7 @@ try {
   const { REL_DIMS, bumpRel } = await import('../src/character/rels.js');
   const { spawnRumor, spreadRumors } = await import('../src/systems/rumors.js');
   // 八维默认值与旧三维迁移
-  const s28 = new Simulation(9090);
+  const s28 = new Simulation(9090, { population: 8 });
   const npc = s28.npcs[0];
   npc.rels = new Map([['old', { affinity: 55, trust: 40, familiarity: 9, lastTalk: 3 }]]);
   const r = npc.rel('old');
@@ -823,19 +823,52 @@ try {
   spreadRumors(a, b, s28);
   assert.equal(b.beliefs.length, n0, 'same rumor spread twice');
   // 集成：模拟跑三天，传闻真的在镇上传开，且读档不丢
-  const s29 = new Simulation(7744);
+  const s29 = new Simulation(7744, { population: 8 });
   for (let i = 0; i < 288 * 3; i++) s29.step();
   const holders = s29.npcs.filter((n) => n.beliefs.some((x) => x.kind === 'rumor'));
   assert.ok(holders.length >= 2, 'rumors did not propagate in live sim: ' + holders.length);
   const maxHops = Math.max(...s29.npcs.flatMap((n) => n.beliefs.filter((x) => x.kind === 'rumor').map((x) => x.hops)), 0);
   assert.ok(maxHops >= 1, 'no rumor hopped');
   const json = JSON.parse(JSON.stringify(s29.toJSON()));
-  const fresh = new Simulation(json.seed);
+  const fresh = new Simulation(json.seed, { population: 8 });
   assert.ok(fresh.restore(json), 'restore failed');
   const kept = fresh.npcs.filter((n) => n.beliefs.some((x) => x.kind === 'rumor')).length;
   assert.ok(kept >= 1, 'rumors lost in save/load');
   pass('关系八维+传闻', `八维迁移/bump 夹取 · 传播 cred×0.85 hops+1 · 三天 ${holders.length} 人持有传闻 · 存读档保留`);
 } catch (e) { fail('关系八维+传闻', e.message); }
+
+// ---------- 40. 规模化：50 人闭环（组合生成 + 传播 + 性能预算） ----------
+try {
+  const s30 = new Simulation(20261123);   // 默认 50（常态规模 D-1）
+  assert.equal(s30.npcs.length, 50, 'population should be 50: ' + s30.npcs.length);
+  // 组合生成合法性：每人有职业/特质/家/不重名
+  const names = new Set(), ids = new Set();
+  for (const n of s30.npcs) {
+    assert.ok(!ids.has(n.id), 'dup id ' + n.id); ids.add(n.id);
+    assert.ok(!names.has(n.name), 'dup name ' + n.name); names.add(n.name);
+    assert.ok(n.job && n.traits.length >= 2 && n.profile.home, 'incomplete persona ' + n.id);
+    assert.equal(n.rels.size, 49, 'rels should cover everyone else');
+  }
+  assert.ok(s30.npcs.filter((n) => n.profile.generated).length >= 40, 'generated personas missing');
+  // 确定性：同种子同镇子
+  const s31 = new Simulation(20261123);
+  assert.equal(s31.npcs.map((n) => n.name).join(','), s30.npcs.map((n) => n.name).join(','), 'generation not deterministic');
+  // 跑三天：社交传播规模化 + 没人饿死 + 决策覆盖
+  const t0 = Date.now();
+  for (let i = 0; i < 288 * 3; i++) s30.step();
+  const elapsed = Date.now() - t0;
+  const holders = s30.npcs.filter((n) => n.beliefs.some((b) => b.kind === 'rumor'));
+  assert.ok(holders.length >= 12, 'rumor holders too few at scale: ' + holders.length);
+  const maxHops = Math.max(...s30.npcs.flatMap((n) => n.beliefs.filter((b) => b.kind === 'rumor').map((b) => b.hops)), 0);
+  assert.ok(maxHops >= 2, 'rumors did not travel far enough: ' + maxHops);
+  const starving = s30.npcs.filter((n) => n.needs.hunger <= 5).length;
+  assert.ok(starving <= 10, 'too many starving: ' + starving);
+  const decided = s30.npcs.filter((n) => n.lastDecision).length;
+  assert.ok(decided >= 20, 'decision coverage too low: ' + decided);
+  // 性能预算：50 人 × 864 刻，平均每刻 < 12ms（CI 宽松上限，本机远低于此）
+  assert.ok(elapsed < 10000, 'perf budget blown: ' + elapsed + 'ms for 864 ticks');
+  pass('规模化 50 人', `生成合法不重名 · 三天传闻 ${holders.length} 人持有 · hops ${maxHops} · 挨饿 ${starving} · 决策 ${decided} · 864 刻 ${elapsed}ms`);
+} catch (e) { fail('规模化 50 人', e.message); }
 
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);

@@ -220,7 +220,7 @@ async function main() {
       };
     `);
     inputTrace.push({ at: new Date().toISOString(), action: 'navigate', detail: `${base}?seed=${SEED}` });
-    record('launch', boot.hasCanvas && boot.npcs === 8 && consoleErrors.length === 0, boot);
+    record('launch', boot.hasCanvas && boot.npcs >= 8 && consoleErrors.length === 0, boot);
 
     // ---- 2. render -------------------------------------------------------
     const shot1 = await page.shot('render-01-boot.png');
@@ -359,7 +359,7 @@ async function main() {
     `);
     inputTrace.push({ at: new Date().toISOString(), action: 'reload', detail: 'reload, then restore from localStorage' });
     const shot4 = await page.shot('restart-01-restored.png');
-    const restartPass = fresh.npcs === 8 && fresh.tick < saved.tick && fresh.decor < restored.decor + 1
+    const restartPass = fresh.npcs >= 8 && fresh.tick < saved.tick && fresh.decor < restored.decor + 1
       && restored.npcs === saved.npcs && Math.abs(restored.tick - saved.tick) <= 30;
     record('restart', restartPass, { fresh, saved, restored, visual: shot4.path });
 
