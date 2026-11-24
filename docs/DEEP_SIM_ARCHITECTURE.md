@@ -1,29 +1,29 @@
 # 溪谷镇 · 深度模拟架构方案（DEEP_SIM_ARCHITECTURE）
 
-> 版本：v1.0 · 2026-11-24
+> 版本：v1.1 · 2026-11-24（§0 五项澄清已确认为决策 D-1…D-5，全文以决策为准）
 > 地位：本文件是「高智能角色系统 + 表现层」的目标架构与落地路线图。代码仍是唯一真相；
 > 本文件描述的是代码要长成什么样，以及从现状（第 11 轮）到目标的迁移路径。
 > 读者设定：接手开发的工程师 / AI。所有接口都给出文件落点，可以直接开写。
 
 ---
 
-## 0. 澄清问题与假设
+## 0. 澄清问题与决策（2026-11-24 已确认）
 
-**关键澄清问题**（最多 5 个；答案会影响取舍，但不阻塞，下面按假设推进）：
+| # | 问题 | 决策 |
+| --- | --- | --- |
+| 1 | 200 NPC 是常态还是上限？ | **常态**。LOD 与分片不是可选优化，是常驻核心机制；感知网格索引从阶段 1 内置；所有性能预算按 200 常驻复核 |
+| 2 | 是否坚持零依赖？ | **解禁**。游戏体量会变大，允许 npm 依赖与构建步骤，策略为「运行时精简、工具链放手」（见 D-2） |
+| 3 | LLM 怎么用？ | **用最好的方式**：provider 可配置，离线批量用高质量模型、运行时润色用小快模型，structured output + JSON Schema 强校验；缓存/预算/文本槽隔离原则不变（见 D-3） |
+| 4 | 「多人同步互动」= 联机吗？ | **不做联机**。指同屏多 NPC 的同步互动（InteractionGroup：婚礼/合奏/押解/集会），重点是丰富 NPC 之间的真实相互影响 |
+| 5 | 画面层？ | **流畅不卡顿优先**。渲染层抽象化，Canvas 2D + 离屏缓存为 baseline；达到性能门槛即迁 PixiJS(WebGL)，像素视觉风格不变（见 D-5） |
 
-1. **规模目标**：200 NPC 是线上常态目标，还是压力测试上限？（影响 LOD 与分块加载的投入顺序）
-2. **技术边界**：是否坚持「纯前端、零 npm 依赖、双击即跑」？（影响能否引入 WASM 寻路/物理、IndexedDB 封装库）
-3. **LLM 资源**：是否已有可用端点与预算？允许云调用还是必须本地小模型？
-4. **「多人同步互动」**：指同屏多个 NPC 的协作/同步互动（如合奏、婚礼、围殴），还是联机多人？
-5. **画面层**：维持 Canvas 2D 像素语言，还是允许 WebGL / 骨骼动画运行时？
+**决策明细（替代原假设 A1–A5，全文以本节为准）**：
 
-**工作假设**（在得到答案前按此设计；每条都在后文标注影响面）：
-
-- A1（对应 2）：坚持纯前端零依赖。所有系统用原生 ES module 实现；存档从 `localStorage` 升级为「localStorage 自动存 + 可导出/导入 JSON 文件」。→ 影响：全部数据结构必须可 JSON 序列化（Map 用数组包装，函数不进状态）。
-- A2（对应 1）：以 **200 NPC 为 LOD 设计上限**，常态 50，MVP 10。性能预算按 200 给。
-- A3（对应 3）：LLM 可选，延续 `llm.js` 的「本地生成兜底、模型只做润色」原则；离线批量扩写走脚本，产物入库人工审核，运行时零依赖。
-- A4（对应 4）：「多人同步互动」按**多 NPC 同场景同步互动**设计（InteractionGroup），不做联机。
-- A5（对应 5）：维持 Canvas 2D 像素风；动画用「状态机 + 事件驱动插槽」，不引入骨骼运行时，但动画状态定义数据化，未来可平移到骨骼。
+- **D-1（规模）**：200 NPC 常驻。§6 的 LOD 四档、Day/Week 层 NPC 分片、§13 交互点容量统计全部按 200 常驻设计并进入阶段 1 验收（不再推迟到阶段 3 才补）。
+- **D-2（依赖与构建）**：运行时只引三个库——`ajv`（schema 校验，替代手写 validate，接口不变）、`idb-keyval`（存档迁 IndexedDB；localStorage 仅存 UI 设置与 LLM 缓存小对象）、`pixi.js`（**预置不启用**，见 D-5）。开发期保持「`node server.mjs` 直跑 src/ 无构建」；发布产物用 esbuild 打单 bundle。测试基座（smoke/verify/CDP）不变。
+- **D-3（LLM）**：`llmGate` 升级 provider 抽象：`offline_batch`（高质量模型，扩写 bio/任务链/传闻池）与 `runtime_polish`（小快模型，对话润色/解释）双通道；输出走 JSON Schema（ajv）强校验 + function calling；缓存 key = sha1(kind + 事实签名 + 模型版本）；预算与降级规则沿用 §3.6。数值路径与 LLM 完全隔离的原则不变。
+- **D-4（无联机）**：InteractionGroup（§13.3）按单机实现；「相互影响」的深化走 §8 四网传播 + §4 模块联动，不预留网络同步接口（避免过度设计）。
+- **D-5（渲染流畅）**：`present/renderer.js` 定义渲染接口（drawTiles/drawActors/drawOverlay…），当前实现 = Canvas 2D + 离屏层缓存（§10.6）。**迁移门槛**：200 NPC 全特效下帧率连续 5s <55fps，或 drawCall > 800/帧 —— 触发 PixiJS(WebGL) 实现替换，接口与视觉不变，smoke/verify 不受影响（渲染层本就不进模拟断言）。
 
 ---
 
@@ -96,7 +96,7 @@
 - 所有「多维度量」用 0..100 浮点，情绪 PAD 用 -1..1，概率 0..1。
 - **一切状态可 JSON 序列化**：`Map` → `{k:v}` 对象或 `[k,v][]`；运行时缓存（如路径）不进存档。
 - 每个实体带 `schemaVersion`，迁移函数链 `migrateVn→Vn+1` 集中放在 `src/persist/migrations.js`。
-- 校验器：手写一个 60 行的 `validate(schema, obj)`（`src/lib/validate.js`），支持 type/enum/required/range/items，**不引 ajv**（零依赖约束 A1）。
+- 校验器：`ajv`（决策 D-2），封装为 `validate(schemaName, obj)`（`src/core/validate.js`），错误信息带路径，内容 CI 与运行时共用。
 
 ### 2.1 Character（角色核心模型）
 
@@ -654,19 +654,23 @@ BT 节点本身无状态机以外的内存，中断/恢复靠 `ActionCall.resume
 **硬约束**：
 
 ```jsonc
-// LLM 网关（src/ai/llmGate.js）规则
+// LLM 网关（src/ai/llmGate.js）规则——决策 D-3：双通道 provider，ajv 强校验
 {
-  "jsonSchema": {                       // 每类调用一个 schema，输出校验不过→降级
+  "providers": {
+    "runtime_polish": { "model": "小快模型", "timeout": "7s" },   // 对话润色/动机解释
+    "offline_batch":  { "model": "高质量模型" }                    // 仅 scripts/llm-batch 使用
+  },
+  "jsonSchema": {                       // 每类调用一个 schema，ajv 校验不过→降级；优先 function calling
     "polish":  { "line": "string, ≤60字, 无违禁前缀(作为AI/抱歉/无法)" },
     "rumor":   { "claim": "string", "aboutIds": ["string"], "mustKeepFacts": ["string"] },
     "explain": { "text": "string, ≤80字" }
   },
   "cache": {
-    "key": "sha1(kind + npcId + 输入事实签名)",   // localStorage + 存档内联（传闻文本进存档）
+    "key": "sha1(kind + npcId + 输入事实签名 + 模型版本)",  // IndexedDB + 存档内联（传闻文本进存档）
     "ttl": "永不过期（同事实同措辞）"
   },
   "budget": { "perDay": 40, "perNpcPerHour": 2 },  // 超限→直接本地模板
-  "fallback": "本地生成器（language.js）",            // 超时 7s/非 200/校验失败 → 回落，静默
+  "fallback": "本地生成器（language.js）",            // 超时/非 200/校验失败 → 回落，静默
   "offline": "scripts/llm-batch.mjs 批量扩写 → data/gen/*.json → 人工审核 → 入库（§7）"
 }
 ```
@@ -1353,7 +1357,7 @@ def release(npc, point, reason):                                 # 完成/中断
 
 ### 阶段 1：10 NPC · 职业 + 家庭闭环（4 周）
 
-范围：Character 组件化迁移、CareerTrack（8 职业 + 各 1 条晋升线）、Household（恋爱/结婚/生育/矛盾）、LifeQuest（每人 1 条）、交互点（床/工位/柜台）、事件总线 + 因果链 v1、动机面板 + 关系图 + 记忆时间线。
+范围：**依赖/构建基座**（ajv + idb-keyval + esbuild，D-2；pixi.js 预置）、Character 组件化迁移、CareerTrack（8 职业 + 各 1 条晋升线）、Household（恋爱/结婚/生育/矛盾）、LifeQuest（每人 1 条）、交互点（床/工位/柜台）、**空间索引与 LOD 分档器内置**（D-1，规模一到位即生效）、事件总线 + 因果链 v1、动机面板 + 关系图 + 记忆时间线、渲染接口抽象（D-5，Canvas2D 实现）。
 验收（可量化）：
 - smoke 新增：晋升事件 ≥2 起/20 天；家庭 grievance 触发与消解各 ≥1 次；LifeQuest 里程碑 ≥5 个/20 天；存档往返后 CareerTrack/Household 无漂移。
 - 因果链：随机抽 10 个 severity≥0.5 事件，上游链完整率 100%。
@@ -1390,7 +1394,7 @@ def release(npc, point, reason):                                 # 完成/中断
 src/
 ├── core/
 │   ├── eventBus.js          新增  EventBus（emit/flush/subscribe/replay 环形缓冲）
-│   └── validate.js          新增  60 行 JSON Schema 校验器（type/enum/range/required）
+│   └── validate.js          新增  ajv 封装（D-2）：validate(schemaName, obj)，错误带路径
 ├── model/
 │   ├── character.js         改造  npc → 组件化 Character（保留旧字段别名一个版本）
 │   └── schemas.js           新增  §2 全部 schema 的 JS 内联定义（供 validate）
@@ -1415,6 +1419,7 @@ src/
 │   ├── scheduler.js         新增  §6.1 分层 tick + 分片 + LOD 分档器
 │   └── spatial.js           新增  网格空间索引
 ├── present/
+│   ├── renderer.js          新增  渲染接口（D-5）：Canvas2D 实现为 baseline，PixiJS 实现预置
 │   ├── router.js            新增  §9.1 PresentationRouter（分类/节流/批处理）
 │   ├── notify.js            新增  通知中心 + 合并规则
 │   ├── markers.js           新增  地图标记 + 聚合簇
@@ -1422,6 +1427,7 @@ src/
 │   ├── animSM.js            新增  §11 动画状态机解释器（读 data/anim/states.js）
 │   └── replay.js            新增  §14.3 回放器
 ├── persist/
+│   ├── store.js             新增  IndexedDB 适配（idb-keyval，D-2）：大世界存档分块写
 │   ├── snapshot.js          改造  toJSON/restore → 组件级 + version 2
 │   └── migrations.js        新增  v1→v2 迁移（旧存档兼容）
 └── i18n/index.js            新增  t(key, vars) 与语言包加载
@@ -1486,7 +1492,7 @@ load(json): Sim                                      // 自动走 migrations
 
 ### 16.3 迁移顺序（每步独立可交付、全程绿测试）
 
-1. **EventBus + validate + feedback 登记表**（1 天）：先把 `sim.log` 与气泡变成订阅者，行为不变，打通「事件即真相」的地基。
+1. **依赖/构建基座 + EventBus + ajv 封装 + feedback 登记表**（1–2 天）：先把 `sim.log` 与气泡变成订阅者，行为不变，打通「事件即真相」的地基；存档同步切 IndexedDB（migrations 护航）。
 2. **Character 组件化 + migrations**（2 天）：旧存档无损升级，smoke 的存档断言自动覆盖。
 3. **Action 注册表**（2 天）：applyEffect 21 个 case 平移，行为逐一对比（同种子 diff 日志应为空）。
 4. **decide/htn/bt**（3 天）：goals.js 数据化；BT 接管 step 执行；动机面板同步上线（它需要的数据正是这一步产生的）。
