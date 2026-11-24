@@ -1,13 +1,8 @@
 // agent.js — one resident: traits, needs, memory, relationships, plan execution.
 import { clamp, clockOf } from './core.js';
 import { orderPlan } from './orders.js';
+import { getAction, actionLabel } from './actions/registry.js';
 
-const ACT_NAMES = {
-  work: '上工', eat: '吃饭', buyMeal: '在酒馆吃饭', sleep: '睡觉', chat: '聊天',
-  relax: '歇一会儿', fish: '钓鱼', paint: '画画', treat: '看病', serve: '招呼客人',
-  trade: '做买卖', watch: '看着街上', look: '看了看四周', harvest: '收割', water: '浇水',
-  plant: '播种', chop: '砍树', build: '盖房子', study: '听课', forage: '找吃的',
-};
 import { JOBS, BIAS } from './data.js';
 import { ensureMind, noteHabit } from './learning.js';
 import { mergeTraits } from './character/traits.js';
@@ -245,7 +240,7 @@ export class NPC {
   }
 
   startAct(sim, step) {
-    if ((step.dur || 0) >= 4) this.note('开始' + (step.label || ACT_NAMES[step.id] || step.id));
+    if ((step.dur || 0) >= 4) this.note('开始' + (step.label || actionLabel(step.id) || step.id));
     if (step.id === 'chat') {
       const other = sim.npcById(step.data?.otherId);
       if (!other || Math.hypot(other.x - this.x, other.y - this.y) > 2.6) {
@@ -265,7 +260,7 @@ export class NPC {
   }
 
   finishAct(sim) {
-    if (this.plan) this.note('干完：' + (ACT_NAMES[this.act?.id] || this.plan.label || '这件事'));
+    if (this.plan) this.note('干完：' + (actionLabel(this.act?.id) || this.plan.label || '这件事'));
     const act = this.act;
     this.act = null;
     if (!act) return;
@@ -314,220 +309,16 @@ export class NPC {
     this.thought = chosen.thought;
   }
 
+  // 效果结算委托给动作注册表（架构 §3）；未登记的动作安全落空
   applyEffect(sim, act) {
-    const n = this.needs;
-    const w = sim.world;
-    const d = act.data || {};
-    const job = JOBS[this.job];
-    switch (act.id) {
-      case 'sleep': {
-        n.energy = clamp(n.energy + 8, 0, 100);
-        this.addMemory({ text: '睡了一觉，梦见了些说不清的东西。', valence: 1.4, strength: 0.4, kind: 'rest' });
-        break;
-      }
-      case 'eat': {
-        if (d.src === 'pack') {
-          if (this.inventory.food <= 0) {
-            // 口袋空了就花钱从镇上仓里买一份；买不起才是真的饿
-            const price = 5;
-            if ((sim.world.stock.food || 0) > 0 && this.coins >= price) {
-              sim.world.stock.food--;
-              this.coins -= price;
-              if (sim.town) sim.town.coins += price;
-              this.note('从仓里买了一份粮', 'market');
-            } else {
-              sim.log(`${this.name}摸了摸口袋，什么吃的都没有。`, 'social', [this.id]);
-              break;
-            }
-          } else {
-            this.inventory.food--;
-          }
-        }
-        n.hunger = clamp(n.hunger + (d.src === 'meal' ? 52 : 40), 0, 100);
-        n.fun += 2;
-        this.addMemory({ text: d.src === 'meal' ? '在酒馆吃了一顿热乎的。' : '啃了点干粮，垫了垫肚子。', valence: 1.2, strength: 0.35, kind: 'food' });
-        break;
-      }
-      case 'study': {
-      if (this.sim?.dev) this.sim.dev.study += 1;
-        n.purpose = clamp(n.purpose + 6, 0, 100);
-        n.fun = clamp(n.fun + 3, 0, 100);
-        this.education = clamp(this.education + 1.6, 0, 100);
-        for (const k of Object.keys(this.skills)) this.skills[k] = Math.round((this.skills[k] + 0.05) * 10) / 10;
-        this.addMemory({ text: '在学堂听了一堂课。', valence: 1, strength: 0.3, kind: 'study' });
-        sim.log(`${this.name}在学堂听了一堂课。`, 'social', [this.id]);
-        break;
-      }
-      case 'buyMeal': {
-        const price = 6;
-        if (this.coins < price) { sim.log(`${this.name}在酒馆门口数了数钱，又走开了。`, 'social', [this.id]); break; }
-        if (sim.world.stock.food <= 0) { sim.log(`${this.name}掀开锅盖，里面是空的。`, 'social', [this.id]); break; }
-        sim.world.stock.food--;
-        this.coins -= price;
-        sim.world.stock.coins += price;
-        if (sim.town) sim.town.coins += price;
-        n.hunger = clamp(n.hunger + 55, 0, 100);
-        n.social += 7; n.fun += 7;
-        this.addMemory({ text: '在酒馆吃了一顿热的，听了几耳朵闲话。', valence: 2, strength: 0.5, kind: 'food', about: ['man'] });
-        sim.log(`${this.name}在酒馆吃了顿饭，花了 ${price} 枚硬币。`, 'work', [this.id, 'man']);
-        break;
-      }
-      case 'forage': {
-        this.inventory.food++;
-        n.fun += 4; n.hunger += 4;
-        this.addMemory({ text: '在林子边找到几颗野果。', valence: 1, strength: 0.3, kind: 'food' });
-        break;
-      }
-      case 'work': {
-        const amount = 1 + (this.skills.farming || 0) * 0.05;
-        n.purpose = clamp(n.purpose + 16, 0, 100);
-        this.coins += 3;
-        sim.world.stock.coins = Math.max(0, sim.world.stock.coins - 3);
-        this.skills[d.skill || 'farming'] = Math.min(10, (this.skills[d.skill || 'farming'] || 0) + 0.05);
-        this.addMemory({ text: d.line || '干了一阵子活，手上有了些热气。', valence: 1, strength: 0.3, kind: 'work' });
-        break;
-      }
-      case 'harvest': {
-      if (this.sim?.dev) this.sim.dev.harvest += 1;
-        const got = w.harvest(d.x, d.y);
-        if (got) {
-          sim.world.stock.food += got;
-          n.purpose += 12; this.coins += 4;
-          this.addMemory({ text: `收了一茬芜菁，装了 ${got} 筐。`, valence: 1.6, strength: 0.45, kind: 'work' });
-          sim.log(`${this.name}收了一茬芜菁（+${got} 食物）。`, 'work', [this.id]);
-        }
-        break;
-      }
-      case 'water': {
-        w.water(d.x, d.y);
-        n.purpose += 4;
-        break;
-      }
-      case 'plant': {
-        if (sim.world.stock.seeds > 0 && w.plant(d.x, d.y)) {
-          sim.world.stock.seeds--;
-          n.purpose += 6;
-          this.addMemory({ text: '在空地里下了种。', valence: 1, strength: 0.3, kind: 'work' });
-        }
-        break;
-      }
-      case 'chop': {
-        const wood = w.chopTree(d.x, d.y);
-        if (wood) {
-          if (sim._chopDay !== sim.clock.day) { sim._chopDay = sim.clock.day; sim._chopCount = 0; }
-          sim._chopCount = (sim._chopCount || 0) + 1;
-          sim.world.stock.wood += wood;
-          this.coins += 2; n.purpose += 10;
-          this.addMemory({ text: `砍倒一棵树，得了 ${wood} 份木料。`, valence: 1, strength: 0.35, kind: 'work' });
-          sim.log(`${this.name}砍了一棵树（+${wood} 木材）。`, 'work', [this.id]);
-        }
-        break;
-      }
-      case 'build': {
-        const bp = w.blueprints.find((b) => b.id === d.bpId);
-        if (!bp) break;
-        const done = w.buildProgress(bp, 0.8 * this.mods.buildSpeed + 0.35);
-        n.purpose += 10; this.coins += 4;
-        if (done) {
-          this.addMemory({ text: `把${bp.name}造好了，站在旁边看了好一会儿。`, valence: 2.4, strength: 0.9, kind: 'build' });
-          sim.log(`${this.name}造好了「${bp.name}」。`, 'build', [this.id]);
-          sim.onDecorBuilt(bp);
-        } else {
-          this.addMemory({ text: `在给${bp.name}收尾。`, valence: 0.6, strength: 0.3, kind: 'work' });
-        }
-        break;
-      }
-      case 'chat': {
-        sim.doChat(this, sim.npcById(d.otherId));
-        break;
-      }
-      case 'relax': {
-        n.fun = clamp(n.fun + 15, 0, 100);
-        n.energy = clamp(n.energy + 3, 0, 100);
-        this.addMemory({ text: d.line || '坐了一会儿，什么也没干。', valence: 1.2, strength: 0.3, kind: 'leisure' });
-        break;
-      }
-      case 'fish': {
-        this.inventory.food++;
-        n.fun += 6; n.purpose += 8; this.coins += 1;
-        this.skills.fishing = Math.min(10, this.skills.fishing + 0.06);
-        this.addMemory({ text: sim.rng.chance(0.2) ? '水面下有什么东西一闪而过，没钓上来。' : '钓上来一条不小的鱼。', valence: sim.rng.chance(0.2) ? 1.8 : 1.1, strength: 0.4, kind: 'work' });
-        break;
-      }
-      case 'paint': {
-        n.fun += 9; n.purpose += 10;
-        this.skills.art = Math.min(10, this.skills.art + 0.08);
-        if (sim.rng.chance(0.18)) {
-          this.coins += 8;
-          this.addMemory({ text: '画出了一小块满意的颜色，有人愿意买走它。', valence: 2.2, strength: 0.7, kind: 'work' });
-          sim.log(`${this.name}卖掉了一幅小画。`, 'work', [this.id]);
-        } else {
-          this.addMemory({ text: '画了又刮掉，总觉得差一点。', valence: 0.2, strength: 0.3, kind: 'work' });
-        }
-        break;
-      }
-      case 'treat': {
-        n.purpose += 12; this.coins += 4;
-        this.skills.healing = Math.min(10, this.skills.healing + 0.05);
-        if (sim.rng.chance(0.25)) {
-          const other = sim.rng.pick(sim.npcs.filter((x) => x.id !== this.id));
-          if (other) {
-            other.needs.energy = clamp(other.needs.energy + 4, 0, 100);
-            other.addMemory({ text: `去诊所找${this.name}看了看，她说什么事都没有，别硬撑。`, valence: 1.4, strength: 0.5, kind: 'care', about: [this.id] });
-            sim.log(`${this.name}给${other.name}看了看脉。`, 'social', [this.id, other.id]);
-          }
-        }
-        break;
-      }
-      case 'serve': {
-        if (sim.world.stock.food <= 0) {
-          const now = sim.tick;
-          if ((sim._restockAt || -999) + 180 < now && this.coins >= 12) {
-            sim._restockAt = now;
-            this.coins -= 12;
-            sim.world.stock.food += 6;
-            this.addMemory({ text: '食材断了，跑了一趟才补上，真不该拖到今天。', valence: -0.8, strength: 0.6, kind: 'work', about: [] });
-            sim.log(`${this.name}断了食材，花 12 硬币补了 6 份（-12 硬币）。`, 'work', [this.id]);
-          } else if ((sim._restockAt || -999) + 180 >= now && !sim._restockNoted) {
-            sim._restockNoted = true;
-            sim.log(`酒馆没食材了，${this.name}把门板挂了上去。`, 'work', [this.id]);
-          }
-          break;
-        }
-        sim.world.stock.food--;
-        this.coins += 5; n.social += 6; n.purpose += 6;
-        const patron = sim.npcs.find((x) => x.id !== this.id && Math.hypot(x.x - this.x, x.y - this.y) < 6);
-        if (patron) {
-          patron.needs.social += 4;
-          patron.addMemory({ text: `在酒馆坐了会儿，${this.name}给续了杯。`, valence: 1, strength: 0.3, kind: 'leisure', about: [this.id] });
-        }
-        this.addMemory({ text: '擦杯子、添酒、听人说话，一晚上就这么过去了。', valence: 1.2, strength: 0.35, kind: 'work' });
-        break;
-      }
-      case 'trade': {
-        this.coins += 4 + Math.round(this.skills.farming * 0.2);
-        n.purpose += 8; n.social += 3;
-        this.addMemory({ text: '在街口做成了两笔小买卖。', valence: 1.3, strength: 0.35, kind: 'work' });
-        break;
-      }
-      case 'watch': {
-        n.purpose += 7;
-        this.addMemory({ text: '巡了一圈，街上没什么事。', valence: 0.8, strength: 0.25, kind: 'work' });
-        break;
-      }
-      case 'look': {
-        n.fun += 3;
-        break;
-      }
-      default:
-        break;
-    }
+    const def = getAction(act.id);
+    if (def) def.apply(this, sim, act);
     this.recentGain = 0;
   }
 
   planView() {
     return this.plan.map((s, i) => ({
-      text: s.kind === 'goto' ? `前往 (${Math.round(s.x)}, ${Math.round(s.y)})` : (s.label || ACT_NAMES[s.id] || s.id),
+      text: s.kind === 'goto' ? `前往 (${Math.round(s.x)}, ${Math.round(s.y)})` : (s.label || actionLabel(s.id) || s.id),
       now: i === this.stepIndex,
       done: i < this.stepIndex,
     }));

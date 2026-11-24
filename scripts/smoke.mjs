@@ -661,6 +661,40 @@ try {
   pass('组件化', 'needs/memory/rels 别名与 setter 兼容 · 去重/裁剪/兜底 · 衰减确定性');
 } catch (e) { fail('组件化', e.message); }
 
+// ---------- 36. Action 注册表：全覆盖 + 分发等价 ----------
+try {
+  const { ACTIONS, getAction, actionLabel, knownActionIds } = await import('../src/actions/registry.js');
+  assert.equal(knownActionIds().length, 20, 'registry should have 20 actions');
+  assert.equal(actionLabel('sleep'), '睡觉');
+  assert.equal(actionLabel('buyMeal'), '在酒馆吃饭');
+  assert.equal(actionLabel('nope'), undefined, 'unknown label should be undefined');
+  assert.equal(getAction('nope'), null, 'unknown action should be null');
+  // 跑一段模拟：所有计划里出现的 act id 都必须有注册项（丰富度靠数据，不许野 id）
+  const s25 = new Simulation(2468);
+  const usedIds = new Set();
+  for (let i = 0; i < 288 * 2; i++) {
+    s25.step();
+    for (const n of s25.npcs) {
+      for (const st of n.plan || []) if (st.kind === 'act') usedIds.add(st.id);
+      if (n.act) usedIds.add(n.act.id);
+    }
+  }
+  const missing = [...usedIds].filter((id) => !getAction(id));
+  assert.equal(missing.length, 0, 'plan used unregistered actions: ' + missing.join(','));
+  assert.ok(usedIds.size >= 10, 'too few distinct actions exercised: ' + usedIds.size);
+  // 分发等价抽查：relax 加 fun/energy，look 加 fun，未知 id 安全落空
+  const npc = s25.npcs[0];
+  npc.act = null; npc.plan = [];
+  npc.needs.fun = 50; npc.needs.energy = 50;
+  npc.applyEffect(s25, { id: 'relax', data: {}, label: '歇一会儿' });
+  assert.ok(npc.needs.fun > 50 && npc.needs.energy > 50, 'relax effect wrong');
+  const f0 = npc.needs.fun;
+  npc.applyEffect(s25, { id: 'look', data: {} });
+  assert.ok(Math.abs(npc.needs.fun - (f0 + 3)) < 1e-9, 'look effect wrong');
+  npc.applyEffect(s25, { id: 'unregistered-thing', data: {} }); // 不炸即可
+  pass('Action 注册表', `20 个动作登记 · 模拟实际用到 ${usedIds.size} 种全部有注册 · 分发效果等价`);
+} catch (e) { fail('Action 注册表', e.message); }
+
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} 项通过`);
