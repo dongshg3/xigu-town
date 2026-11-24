@@ -1,49 +1,49 @@
 {
   "schemaVersion": 1,
   "runId": "main-path",
-  "createdAt": "2026-11-23T15:53:40.948Z",
+  "createdAt": "2026-11-24T03:49:05.115Z",
   "environment": {
     "os": "win32 10.0.22000",
     "node": "v24.21.0",
     "browser": "Chrome/157.0.8103.80",
-    "url": "http://127.0.0.1:1580/?seed=20261123",
+    "url": "http://127.0.0.1:3075/?seed=20261123",
     "viewport": "1280x800",
     "seed": 20261123,
     "timezone": "Asia/Shanghai"
   },
   "inputTrace": [
     {
-      "at": "2026-11-23T15:53:43.667Z",
+      "at": "2026-11-24T03:49:08.548Z",
       "action": "navigate",
-      "detail": "http://127.0.0.1:1580/?seed=20261123"
+      "detail": "http://127.0.0.1:3075/?seed=20261123"
     },
     {
-      "at": "2026-11-23T15:53:43.888Z",
+      "at": "2026-11-24T03:49:08.838Z",
       "action": "click",
       "detail": "speed 8x"
     },
     {
-      "at": "2026-11-23T15:53:45.962Z",
+      "at": "2026-11-24T03:49:10.974Z",
       "action": "click",
       "detail": "walk to tile 20,11"
     },
     {
-      "at": "2026-11-23T15:53:47.582Z",
+      "at": "2026-11-24T03:49:12.592Z",
       "action": "key",
       "detail": "Space (pause)"
     },
     {
-      "at": "2026-11-23T15:53:48.542Z",
+      "at": "2026-11-24T03:49:13.570Z",
       "action": "fast-forward",
       "detail": "480 ticks via sim.step(), sampling goals and acts"
     },
     {
-      "at": "2026-11-23T15:53:48.597Z",
+      "at": "2026-11-24T03:49:13.630Z",
       "action": "sandbox",
       "detail": "place bench blueprint and wait for the carpenter"
     },
     {
-      "at": "2026-11-23T15:53:49.804Z",
+      "at": "2026-11-24T03:49:14.864Z",
       "action": "reload",
       "detail": "reload, then restore from localStorage"
     }
@@ -76,12 +76,12 @@
         "visual": "qa/evidence/render-02-running.png",
         "boot": "qa/evidence/render-01-boot.png",
         "bytes": [
-          292504,
-          260080
+          292566,
+          260141
         ],
         "clock": [
           "第 1 天 06:05",
-          "第 1 天 07:35"
+          "第 1 天 07:40"
         ]
       }
     },
@@ -95,8 +95,8 @@
       "state": {
         "moved": 4,
         "pausedTick": {
-          "t0": 44,
-          "t1": 44
+          "t0": 45,
+          "t1": 45
         }
       }
     },
@@ -106,8 +106,8 @@
         "sim.step() x480"
       ],
       "state": {
-        "t0": 44,
-        "t1": 524,
+        "t0": 45,
+        "t1": 525,
         "logs0": 16,
         "logs1": 121,
         "goalKinds": [
@@ -121,9 +121,11 @@
         "actKinds": [
           "buyMeal",
           "chat",
+          "chop",
           "eat",
           "fish",
           "forage",
+          "harvest",
           "paint",
           "relax",
           "serve",
@@ -153,7 +155,7 @@
           "x": 7,
           "y": 2
         },
-        "steps": 181,
+        "steps": 180,
         "before": 3,
         "after": 4,
         "beauty": 7,

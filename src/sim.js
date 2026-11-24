@@ -15,6 +15,8 @@ import { ensureCouncil, tickPolitics, propose, voteFor, politicsSummary, playerS
 import { ensureFaith, tickFaith, godAct } from './god.js';
 import { ensureDev, tickDevelopment } from './development.js';
 import { tickInfluence } from './influence.js';
+import { EventBus } from './core/eventBus.js';
+import { knownKinds } from './data/present/feedback.js';
 
 export class Simulation {
   constructor(seed = 20261123) {
@@ -26,6 +28,10 @@ export class Simulation {
     this.npcs = PROFILES.map((p) => new NPC({ ...p, sex: SEX[p.id], age: AGE[p.id] }, this.world, this));
     this.npcMap = new Map(this.npcs.map((n) => [n.id, n]));
     this.logs = [];
+    // 事件总线（架构 §5）：本步只接机制——log() 会同步发 'log.line' 事件，
+    // 日志本体照旧写 logs[]，行为与确定性不变（事件不消耗 rng）。
+    this.events = new EventBus(this);
+    this.events.knownKinds = knownKinds();
     this.dramaticFlags = [];
     this.effects = [];
     this.revealedSecrets = new Set();
@@ -88,6 +94,8 @@ export class Simulation {
     const entry = { tick: this.tick, time: `D${c.day} ${c.short}`, text, kind, about, count: 1 };
     this.logs.push(entry);
     if (this.logs.length > 320) this.logs.shift();
+    // 同时发一条事件：给回放、通知中心、因果链留素材（不改变日志本身的行为）
+    this.events.emit({ kind: 'log.line', severity: 0.1, actors: about, data: { text, logKind: kind } });
     return entry;
   }
 
@@ -379,6 +387,7 @@ export class Simulation {
     for (const e of this.effects) { e.age++; e.y -= 0.006; }
     this.effects = this.effects.filter((e) => e.age < e.ttl);
     this.ambient();
+    this.events.flush();
   }
 
   stats() {

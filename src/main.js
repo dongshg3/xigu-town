@@ -9,6 +9,7 @@ import { ORDER_KINDS } from './orders.js';
 import { relTag } from './social.js';
 import { play, unlockAudio, setMuted, isMuted } from './audio.js';
 import { kick } from './juice.js';
+import { saveGame, loadGame } from './persist/store.js';
 
 const SAVE_KEY = 'xigu-town-save-v1';
 const TS = 26;
@@ -185,27 +186,31 @@ const ui = new UI({
   onBuild(type) { startPlacement(type); },
   onCancelPlacement() { cancelPlacement(); },
   onSave() {
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(sim.toJSON()));
-      ui.toast(`已保存（第 ${sim.clock.day} 天）。`);
-    } catch (e) { ui.toast(`保存失败：${e.message}`, 3000); }
+    (async () => {
+      try {
+        await saveGame(SAVE_KEY, sim.toJSON());
+        ui.toast(`已保存（第 ${sim.clock.day} 天）。`);
+      } catch (e) { ui.toast(`保存失败：${e.message}`, 3000); }
+    })();
   },
   onLoad() {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) { ui.toast('本地没有存档。'); return; }
-    try {
-      const data = JSON.parse(raw);
-      const fresh = new Simulation(data.seed || 20261123);
-      if (!fresh.restore(data)) throw new Error('存档版本不匹配');
-      sim = fresh;
-      state.selectedId = null;
-      ui.selectedId = null;
-      cancelPlacement();
-      ui.closeModal();
-      ui.updateClock(sim);
-      ui.render(sim);
-      ui.toast('读取完成。');
-    } catch (e) { ui.toast(`读取失败：${e.message}`, 3000); }
+    (async () => {
+      try {
+        const raw = await loadGame(SAVE_KEY);
+        if (!raw) { ui.toast('本地没有存档。'); return; }
+        const data = JSON.parse(raw);
+        const fresh = new Simulation(data.seed || 20261123);
+        if (!fresh.restore(data)) throw new Error('存档版本不匹配');
+        sim = fresh;
+        state.selectedId = null;
+        ui.selectedId = null;
+        cancelPlacement();
+        ui.closeModal();
+        ui.updateClock(sim);
+        ui.render(sim);
+        ui.toast('读取完成。');
+      } catch (e) { ui.toast(`读取失败：${e.message}`, 3000); }
+    })();
   },
   onNewSeed() {
     if (!confirm('放弃当前进度，换一个种子重新生成小镇？')) return;

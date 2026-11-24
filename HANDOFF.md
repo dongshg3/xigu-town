@@ -2,7 +2,7 @@
 
 > 给下一个接手的人（或 AI）。读完这份就能改代码、跑测试、推上线，不需要翻聊天记录。
 >
-> 最后更新：第 11 轮迭代结束（可玩性批次 A/B/C + 季节系统落地）
+> 最后更新：第 12 轮迭代进行中（深化架构迁移第 1 步：EventBus + ajv 校验 + 反馈登记 + IndexedDB 存档）
 > 线上：https://dongshg3.github.io/xigu-town/
 
 ---
@@ -65,8 +65,14 @@ npm run verify           # 起 Chrome 跑真实浏览器，六项检查 + 截图
 | `src/juice.js` | 29 | 屏幕震动与缓动 |
 | `src/ui.js` | 394 | 右侧面板：世界/镇务/居民/日志四页，居民详情、对话弹窗 |
 | `src/panels.js` | 71 | 镇务页 HTML 生成（纯函数） |
-| `src/main.js` | 625 | 装配：主循环、输入、相机、建造、指令、存档、音频触发 |
-| `scripts/smoke.mjs` | — | 28 项无头断言 |
+| `src/main.js` | 629 | 装配：主循环、输入、相机、建造、指令、存档、音频触发 |
+| `src/core/validate.js` | 40 | **ajv 封装**：`defineSchema/validate/assertValid`，内容 CI 与运行时共用 |
+| `src/core/eventBus.js` | 92 | **事件总线**：emit/subscribe/flush 两相派发、限深 3 层、replay 环形 5000、因果链 |
+| `src/data/present/feedback.js` | 92 | **反馈登记表**：事件 kind → 通知/标记/动画/音效等通道；lint 强制重要事件 ≥2 通道 |
+| `src/persist/store.js` | 55 | **存档持久层**：IndexedDB 优先，localStorage/内存兜底，浏览器与 Node 通吃 |
+| `src/vendor/` | — | esbuild 从 node_modules 打出的浏览器可用包（ajv、idb-keyval），`npm run vendor` 复现 |
+| `scripts/vendor.mjs` | — | vendor 打包脚本（esbuild stdin 方式） |
+| `scripts/smoke.mjs` | — | 34 项无头断言 |
 | `scripts/verify.mjs` | — | CDP 驱动真实浏览器，写 `qa/` |
 | `sprites.html` | 54 | 开发用样张页：四向 × 四帧小人 |
 | `design/` | — | GAME_DESIGN / ART_DIRECTION |

@@ -7,6 +7,14 @@
   "scripts": {
     "dev": "node server.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "vendor": "node scripts/vendor.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "idb-keyval": "^6.3.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

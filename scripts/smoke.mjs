@@ -547,6 +547,74 @@ try {
   pass('指令选对象', `${a.name} 被吩咐去找 ${b.name} · 计划含 chat 步骤 · 个人史留痕`);
 } catch (e) { fail('指令选对象', e.message); }
 
+// ---------- 32. validate：ajv 封装（好对象过 / 坏对象报路径） ----------
+try {
+  const { defineSchema, validate, hasSchema } = await import('../src/core/validate.js');
+  defineSchema('SmokePoint', {
+    type: 'object',
+    properties: { x: { type: 'number' }, y: { type: 'number' }, tag: { type: 'string', default: 'p' } },
+    required: ['x', 'y'],
+    additionalProperties: false,
+  });
+  assert.ok(hasSchema('SmokePoint'), 'schema not registered');
+  const good = { x: 1, y: 2 };
+  const rg = validate('SmokePoint', good);
+  assert.ok(rg.ok, 'good object rejected: ' + rg.errors.join(';'));
+  assert.equal(good.tag, 'p', 'ajv default not applied');
+  const bad = validate('SmokePoint', { x: 'oops', y: 2, extra: 1 });
+  assert.ok(!bad.ok, 'bad object passed validation');
+  assert.ok(bad.errors.some((m) => m.includes('x')), 'error missing instance path: ' + bad.errors.join(';'));
+  const unreg = validate('NoSuchSchema', {});
+  assert.ok(!unreg.ok && unreg.errors[0].includes('未注册'), 'unregistered schema not reported');
+  pass('validate', `ajv 封装可用 · 默认值生效 · 错误带路径「${bad.errors[0]}」`);
+} catch (e) { fail('validate', e.message); }
+
+// ---------- 33. EventBus：log→事件、订阅派发、因果链 ----------
+try {
+  const s23 = new Simulation(4242);
+  let heard = 0;
+  const seen = [];
+  s23.events.subscribe((ev) => ev.kind === 'log.line', (ev) => { heard++; seen.push(ev.data.text); });
+  const before = heard;
+  s23.log('冒烟测试的一句话。', 'system', []);
+  s23.step(); // flush 在 step 末尾
+  assert.ok(heard > before, 'subscriber did not receive log.line event');
+  assert.ok(seen.some((t) => t === '冒烟测试的一句话。'), 'event payload missing text');
+  // 因果链：父事件 → 子事件
+  const parent = s23.events.emit({ kind: 'log.line', data: { text: 'parent' } });
+  const child = s23.events.emit({ kind: 'log.line', data: { text: 'child' }, parentEventId: parent.id });
+  const chain = s23.events.causalChain(child.id);
+  assert.equal(chain.length, 2, 'causal chain length wrong: ' + chain.length);
+  assert.equal(chain[0].id, parent.id, 'causal chain order wrong');
+  // 限深：超过 3 层的级联被截断，不炸栈
+  s23.events.subscribe(() => true, (ev, sim) => {
+    if (ev.data && ev.data.loop) sim.events.emit({ kind: 'log.line', data: { loop: true } });
+  });
+  s23.events.emit({ kind: 'log.line', data: { loop: true } });
+  s23.events.flush();
+  // replay 环形缓冲存在且有内容
+  assert.ok(s23.events.replay.length > 0, 'replay buffer empty');
+  pass('EventBus', `log→事件 ${heard - before} 条 · 因果链 2 层 · 级联限深安全 · replay ${s23.events.replay.length} 条`);
+} catch (e) { fail('EventBus', e.message); }
+
+// ---------- 34. feedback 登记表 lint + 存档持久层（Node 兜底） ----------
+try {
+  const { lintFeedback, FEEDBACK } = await import('../src/data/present/feedback.js');
+  const problems = lintFeedback();
+  assert.equal(problems.length, 0, 'feedback lint problems: ' + problems.join('；'));
+  assert.ok(FEEDBACK['log.line'], 'log.line not registered');
+  const { saveGame, loadGame } = await import('../src/persist/store.js');
+  const backend = await saveGame('smoke-test-key', { hello: '镇', n: 42 });
+  assert.ok(['indexeddb', 'localstorage', 'memory'].includes(backend), 'unknown backend: ' + backend);
+  const raw = await loadGame('smoke-test-key');
+  const back = JSON.parse(raw);
+  assert.equal(back.hello, '镇', 'round trip lost data');
+  assert.equal(back.n, 42);
+  const missing = await loadGame('smoke-no-such-key');
+  assert.equal(missing, null, 'missing key should return null');
+  pass('反馈登记+存档', `lint 0 问题 · ${Object.keys(FEEDBACK).length} 种事件登记 · 存档往返(${backend})`);
+} catch (e) { fail('反馈登记+存档', e.message); }
+
 // ---------- report ----------
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} 项通过`);
